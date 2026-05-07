@@ -153,7 +153,15 @@ export function startOverlay({ stage, channelId }) {
 
   function renderHud() {
     const appearance = state.monster?.appearance || DEFAULT_APPEARANCE;
-    bossEl.innerHTML = renderMonsterSVG(appearance);
+    const recentBossAttack = (state.events || []).some(
+      (e) => e.kind === 'BOSS_ABILITY' || e.kind === 'BOSS_BASIC_ATTACK' || e.kind === 'BOSS_CRIT',
+    );
+    let anim = 'idle';
+    if (state.phase === PHASE.LOBBY) anim = 'walk';
+    else if (state.phase === PHASE.RESULTS && state.victory) anim = 'death';
+    else if (state.phase === PHASE.DEATH) anim = 'death';
+    else if (state.phase === PHASE.FIGHT && recentBossAttack) anim = 'attack';
+    bossEl.innerHTML = renderMonsterSVG(appearance, { level: state.monster?.level || 1, anim });
 
     if (state.monster) {
       const hp = state.bossHP || derivedHP(state.monster);

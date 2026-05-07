@@ -1,0 +1,187 @@
+/* animations.css — keyframes for the Goober Bestiary sprite rig.
+   Animations target [data-part="..."] groups inside monster SVGs.
+   Activate by adding .anim-<name> class to the .sprite-stage wrapper. */
+
+/* ─── BREATHE / IDLE ─────────────────────────────────────────────────── */
+@keyframes breathe {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-2px) scaleY(1.02); }
+}
+.anim-idle [data-part="body"],
+.anim-idle [data-part="head"] {
+  animation: breathe 2.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.anim-idle [data-part="head"] {
+  animation-delay: -0.2s;
+  animation-duration: 2.8s;
+}
+
+/* ─── BLINK ──────────────────────────────────────────────────────────── */
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.05); }
+}
+.anim-blink [data-part="eye-left"],
+.anim-blink [data-part="eye-right"] {
+  animation: blink 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.anim-blink [data-part="eye-right"] { animation-delay: -0.04s; }
+
+/* ─── WALK CYCLE ─────────────────────────────────────────────────────── */
+@keyframes walk-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  25% { transform: translateY(-3px) rotate(0deg); }
+  50% { transform: translateY(0) rotate(1deg); }
+  75% { transform: translateY(-3px) rotate(0deg); }
+}
+@keyframes walk-leg-l {
+  0%, 100% { transform: rotate(-20deg); }
+  50% { transform: rotate(20deg); }
+}
+@keyframes walk-leg-r {
+  0%, 100% { transform: rotate(20deg); }
+  50% { transform: rotate(-20deg); }
+}
+@keyframes walk-arm-l {
+  0%, 100% { transform: rotate(15deg); }
+  50% { transform: rotate(-15deg); }
+}
+@keyframes walk-arm-r {
+  0%, 100% { transform: rotate(-15deg); }
+  50% { transform: rotate(15deg); }
+}
+.anim-walk [data-part="body"],
+.anim-walk [data-part="head"],
+.anim-walk [data-part="shoulders"] {
+  animation: walk-bob 0.7s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.anim-walk [data-part="leg-l"] { animation: walk-leg-l 0.7s ease-in-out infinite; }
+.anim-walk [data-part="leg-r"] { animation: walk-leg-r 0.7s ease-in-out infinite; }
+.anim-walk [data-part="arm-l"] { animation: walk-arm-l 0.7s ease-in-out infinite; }
+.anim-walk [data-part="arm-r"] { animation: walk-arm-r 0.7s ease-in-out infinite; }
+
+/* ─── MOUTH CHOMP ────────────────────────────────────────────────────── */
+@keyframes chomp {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.4) translateY(2px); }
+}
+.anim-chomp [data-part="mouth"] {
+  animation: chomp 0.45s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ─── HURT / SQUISH ──────────────────────────────────────────────────── */
+@keyframes hurt-shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  20% { transform: translateX(-6px) rotate(-3deg); }
+  40% { transform: translateX(6px) rotate(3deg); }
+  60% { transform: translateX(-4px) rotate(-2deg); }
+  80% { transform: translateX(4px) rotate(2deg); }
+}
+@keyframes hurt-squish {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  30% { transform: scaleY(0.85) scaleX(1.12); }
+  60% { transform: scaleY(1.08) scaleX(0.94); }
+}
+.anim-hurt [data-part="root"] {
+  animation: hurt-shake 0.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.anim-hurt [data-part="body"] {
+  animation: hurt-squish 0.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* ─── ATTACK LUNGE ───────────────────────────────────────────────────── */
+@keyframes attack-lunge {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(0, 6px) rotate(-3deg); }
+  45% { transform: translate(20px, -8px) rotate(8deg); }
+  70% { transform: translate(15px, -2px) rotate(5deg); }
+}
+.anim-attack [data-part="root"] {
+  animation: attack-lunge 1.1s cubic-bezier(.5,.1,.3,1.3) infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* ─── HAND-DRAWN JITTER ──────────────────────────────────────────────── */
+@keyframes draw-jitter {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(0.6px, -0.4px); }
+  66% { transform: translate(-0.4px, 0.5px); }
+}
+.sprite-stage svg {
+  animation: draw-jitter 0.18s steps(1, end) infinite;
+}
+.sprite-stage.anim-hurt svg,
+.sprite-stage.anim-attack svg,
+.sprite-stage.anim-death svg,
+.sprite-stage.anim-spawn svg {
+  animation: none;
+}
+
+/* ─── DEATH ──────────────────────────────────────────────────────────── */
+@keyframes death-fall {
+  0%   { transform: rotate(0) translateY(0) scale(1); opacity: 1; }
+  20%  { transform: rotate(-8deg) translateY(0) scale(1); opacity: 1; }
+  40%  { transform: rotate(-25deg) translateY(8px) scale(0.95, 0.85); opacity: 1; }
+  70%  { transform: rotate(-90deg) translateY(40px) scale(0.6, 0.4); opacity: 0.8; }
+  100% { transform: rotate(-90deg) translateY(60px) scale(0.1, 0.05); opacity: 0; }
+}
+.anim-death [data-part="root"] {
+  animation: death-fall 1.6s cubic-bezier(.4,0,.7,1) infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.anim-death [data-part="eye-left"],
+.anim-death [data-part="eye-right"] {
+  animation: blink 1.6s ease-in-out infinite;
+  animation-delay: -1s;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ─── SPAWN ──────────────────────────────────────────────────────────── */
+@keyframes spawn-pop {
+  0%   { transform: translateY(40px) scale(0.2, 0.05); opacity: 0; }
+  30%  { transform: translateY(-10px) scale(1.1, 0.95); opacity: 1; }
+  55%  { transform: translateY(0) scale(0.92, 1.08); opacity: 1; }
+  75%  { transform: translateY(-3px) scale(1.04, 0.98); opacity: 1; }
+  100% { transform: translateY(0) scale(1, 1); opacity: 1; }
+}
+.anim-spawn [data-part="root"] {
+  animation: spawn-pop 1.4s cubic-bezier(.3,1.4,.5,1) infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* ─── VARIANT ACCENT FX ──────────────────────────────────────────────── */
+@keyframes flame-flicker {
+  0%, 100% { transform: translateY(0) scaleY(1); opacity: 1; }
+  50% { transform: translateY(-2px) scaleY(1.1); opacity: 0.85; }
+}
+@keyframes sparkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes wisp {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ─── VARIANT TINTING (per-sprite) ────────────────────────────────────── */
+.sprite-stage[data-variant="poison"] [data-part="body"] > path { fill: #dff0c2 !important; }
+.sprite-stage[data-variant="fire"]   [data-part="body"] > path { fill: #fde0c2 !important; }
+.sprite-stage[data-variant="ice"]    [data-part="body"] > path { fill: #d6ecf6 !important; }
+.sprite-stage[data-variant="shadow"] [data-part="body"] > path { fill: #3a3440 !important; stroke: #0a0810 !important; }
+.sprite-stage[data-variant="shadow"] svg { color: #d8d0e8; }

@@ -12,6 +12,9 @@
  */
 
 import { PALETTES } from './constants.js';
+import { PRESET_KEYS, getPreset, renderPresetSVG } from './bestiary.js';
+
+export { PRESET_KEYS, getPreset } from './bestiary.js';
 
 export const VIEWBOX = '0 0 220 280';
 export const VIEW_W = 220;
@@ -296,11 +299,25 @@ function accessories(level) {
 /**
  * Compose a full monster SVG string from an appearance config.
  *
- * @param {{body:string, eyes:string, mouth:string, horns:string, arms:string, feet:string, paletteIdx:number}} appearance
- * @param {{className?:string, idle?:boolean, level?:number}} [opts]
+ * If `appearance.presetKey` is set and registered in the bestiary, dispatches
+ * to the preset renderer (Bean Guy / Box Head / etc. — full hand-drawn
+ * characters). Otherwise falls back to the legacy 6-slot composer.
+ *
+ * @param {{body?:string, eyes?:string, mouth?:string, horns?:string, arms?:string, feet?:string, paletteIdx?:number, presetKey?:string, expr?:string, variant?:string}} appearance
+ * @param {{className?:string, idle?:boolean, level?:number, anim?:string}} [opts]
  */
-export function renderMonsterSVG(appearance, opts = {}) {
-  const palette = PALETTES[appearance.paletteIdx % PALETTES.length] || PALETTES[0];
+export function renderMonsterSVG(appearance = {}, opts = {}) {
+  // Dispatch to bestiary preset if requested.
+  if (appearance.presetKey && getPreset(appearance.presetKey)) {
+    return renderPresetSVG(appearance.presetKey, {
+      expr: appearance.expr,
+      variant: appearance.variant,
+      idle: opts.idle,
+      anim: opts.anim,
+      level: opts.level || 1,
+    });
+  }
+  const palette = PALETTES[(appearance.paletteIdx || 0) % PALETTES.length] || PALETTES[0];
   const body = BODIES[appearance.body] || BODIES.blob;
   const className = opts.className ? ` class="${opts.className}"` : '';
   const idleClass = opts.idle === false ? '' : ' brm-idle';

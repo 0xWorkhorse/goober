@@ -4,7 +4,7 @@ import {
 } from '@bossraid/shared';
 
 import { el } from './chrome.js';
-import { buildDashboard, monsterStage } from './dashboard.js';
+import { animForPhase, buildDashboard, monsterStage } from './dashboard.js';
 
 /**
  * LEVEL_UP phase view — left col allocates 3 stat points, center shows the
@@ -30,7 +30,7 @@ export function renderLevelUp(root, ctx) {
   const left = buildAllocator(ctx, ui);
   const right = buildReroll(ctx, ui);
 
-  const { stage } = monsterStage(m.appearance, { level: m.level || 1 });
+  const { stage } = monsterStage(m.appearance, { level: m.level || 1, anim: animForPhase('level_up', m) });
   const overlays = el('div');
   const banner = el('div');
   banner.style.cssText = 'position:absolute;top:18px;left:50%;transform:translateX(-50%);';

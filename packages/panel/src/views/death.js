@@ -44,7 +44,7 @@ export function renderDeath(root, ctx) {
     return w;
   })();
 
-  const { stage } = monsterStage(m?.appearance, { level: m?.level || 1, idle: false });
+  const { stage } = monsterStage(m?.appearance, { level: m?.level || 1, anim: 'death' });
   const overlays = el('div');
   const banner = el('div');
   banner.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%, -90%);text-align:center;';

@@ -1,10 +1,10 @@
 import {
-  C2S, PALETTES, PART_SLOTS, PART_SLOT_NAMES, PHASE,
+  BESTIARY, C2S, PALETTES, PART_SLOTS, PART_SLOT_NAMES, PHASE, PRESET_KEYS,
   STAT_DEFS, STAT_NAMES, deriveStats,
 } from '@bossraid/shared';
 
 import { el, escapeHtml } from './chrome.js';
-import { buildDashboard, monsterStage, topBanner } from './dashboard.js';
+import { animForPhase, buildDashboard, monsterStage, topBanner } from './dashboard.js';
 
 /**
  * IDLE phase — streamer has an active monster and is between fights. The
@@ -39,18 +39,24 @@ export function renderIdleOrLobby(root, ctx) {
   const left = isLobby ? buildLobbyJoiners(ctx) : buildIdleStats(m, stats);
   const right = isLobby ? buildLobbyControls(ctx) : buildIdleControls(ctx);
 
-  const { stage } = monsterStage(m.appearance, { level: m.level || 1 });
+  const { stage } = monsterStage(m.appearance, { level: m.level || 1, anim: animForPhase(ctx.state.phase, m) });
   const overlays = el('div');
   overlays.appendChild(topBanner(`${m.name || 'monster'} · Lv ${m.level || 1} · ${m.wins || 0} wins`));
 
   if (!isLobby) {
-    // Inline slot-edit dots and popover (open via slot click)
-    overlays.appendChild(buildSlotDots(ctx, m));
-    if (ctx.editingSlot) overlays.appendChild(buildSlotPopover(ctx, m));
-    // Sticky note hint
+    const isPreset = !!m.appearance?.presetKey;
+    if (isPreset) {
+      overlays.appendChild(buildPresetDots(ctx, m));
+      if (ctx.editingSlot) overlays.appendChild(buildPresetPopover(ctx, m));
+    } else {
+      overlays.appendChild(buildSlotDots(ctx, m));
+      if (ctx.editingSlot) overlays.appendChild(buildSlotPopover(ctx, m));
+    }
     const note = el('div', 'sticky');
     note.style.cssText = 'position:absolute;bottom:24px;right:24px;';
-    note.innerHTML = 'click any dot to<br>swap that part';
+    note.innerHTML = isPreset
+      ? 'click a dot to<br>swap monster, vibe,<br>or mood'
+      : 'click any dot to<br>swap that part';
     overlays.appendChild(note);
   } else {
     // Lobby: show the lurker nudge near the monster
@@ -125,8 +131,9 @@ function buildLobbyJoiners(ctx) {
   list.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;overflow:auto;max-height:380px;';
   for (const c of (ctx.state.chatters || []).slice(0, 28)) {
     const chip = el('span', 'pulse-msg');
-    chip.style.cssText = 'padding:2px 10px;font-size:13px;';
-    chip.innerHTML = `<span class="who">${escapeHtml(c.login)}</span>`;
+    chip.style.cssText = 'padding:2px 10px 2px 4px;font-size:13px;display:inline-flex;align-items:center;gap:6px;';
+    const url = c.pfpUrl || `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(c.login)}&backgroundType=solid&backgroundColor=fdfaf3`;
+    chip.innerHTML = `<span class="pfp-mini" style="width:20px;height:20px;box-shadow:none;"><img src="${escapeHtml(url)}" alt="" loading="lazy"/></span><span class="who">${escapeHtml(c.login)}</span>`;
     list.appendChild(chip);
   }
   if (count > 28) {
@@ -210,6 +217,83 @@ function buildSlotDots(ctx, _monster) {
   }
   layer.appendChild(inner);
   return layer;
+}
+
+// ─── Preset-aware edit dots (shown when monster is a bestiary preset) ─────
+const PRESET_DOT_SLOTS = ['monster', 'vibe', 'mood'];
+const PRESET_DOT_POSITIONS = {
+  monster: { top: '4%', left: '50%', transform: 'translateX(-50%)' },
+  vibe: { top: '50%', left: '4%' },
+  mood: { top: '50%', right: '4%' },
+};
+function buildPresetDots(ctx, _m) {
+  const layer = el('div');
+  layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+  const inner = el('div');
+  inner.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);width:min(72%, 460px);aspect-ratio:0.78;pointer-events:none;';
+  for (const slot of PRESET_DOT_SLOTS) {
+    const dot = el('div', 'slot-dot' + (ctx.editingSlot === slot ? ' active' : ''));
+    dot.dataset.slot = slot;
+    dot.title = slot;
+    dot.textContent = '+';
+    dot.style.pointerEvents = 'auto';
+    Object.assign(dot.style, PRESET_DOT_POSITIONS[slot] || { top: '50%', left: '50%' });
+    dot.addEventListener('click', () => {
+      ctx.editingSlot = ctx.editingSlot === slot ? null : slot;
+      ctx.rerender();
+    });
+    inner.appendChild(dot);
+  }
+  layer.appendChild(inner);
+  return layer;
+}
+
+function buildPresetPopover(ctx, monster) {
+  const slot = ctx.editingSlot;
+  const pop = el('div', 'slot-popover');
+  pop.style.cssText = 'top:50%;left:60%;transform:translate(-10%, -50%);';
+  const close = el('button', 'btn tiny ghost');
+  close.style.cssText = 'position:absolute;top:6px;right:8px;';
+  close.textContent = '✕';
+  close.addEventListener('click', () => { ctx.editingSlot = null; ctx.rerender(); });
+
+  const t = el('div', 'title');
+  t.textContent = slot.toUpperCase();
+  pop.append(close, t);
+  const opts = el('div', 'opts');
+
+  if (slot === 'monster') {
+    for (const k of PRESET_KEYS) {
+      const meta = BESTIARY[k];
+      const b = el('button', 'opt' + (monster.appearance?.presetKey === k ? ' on' : ''));
+      b.textContent = meta.name;
+      b.title = meta.tagline;
+      b.addEventListener('click', () => {
+        ctx.send(C2S.PICK_APPEARANCE, { appearance: { ...monster.appearance, presetKey: k, expr: meta.defaultExpr } });
+      });
+      opts.appendChild(b);
+    }
+  } else if (slot === 'vibe') {
+    for (const v of ['normal', 'poison', 'fire', 'ice', 'shadow']) {
+      const b = el('button', 'opt' + ((monster.appearance?.variant || 'normal') === v ? ' on' : ''));
+      b.textContent = v;
+      b.addEventListener('click', () => {
+        ctx.send(C2S.PICK_APPEARANCE, { appearance: { ...monster.appearance, variant: v } });
+      });
+      opts.appendChild(b);
+    }
+  } else if (slot === 'mood') {
+    for (const e of ['idle', 'angry', 'happy', 'worry']) {
+      const b = el('button', 'opt' + ((monster.appearance?.expr || 'angry') === e ? ' on' : ''));
+      b.textContent = e;
+      b.addEventListener('click', () => {
+        ctx.send(C2S.PICK_APPEARANCE, { appearance: { ...monster.appearance, expr: e } });
+      });
+      opts.appendChild(b);
+    }
+  }
+  pop.appendChild(opts);
+  return pop;
 }
 
 function buildSlotPopover(ctx, monster) {

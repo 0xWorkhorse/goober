@@ -1,25 +1,14 @@
 /**
- * Persistent dashboard layout shared by every fight-loop phase.
- *
- *   ┌──────────────┬───────────────────────┬────────────┐
- *   │ left column  │    monster stage      │  right col │
- *   │ chat-side    │    (center, no pad)   │  controls  │
- *   └──────────────┴───────────────────────┴────────────┘
- *   ┌──────────────────────────────────────────────────┐
- *   │ chat pulse strip                                 │
- *   └──────────────────────────────────────────────────┘
- *
- * Each phase passes in three element nodes for the columns + an optional
- * absolutely-positioned overlay layer that sits over the monster stage.
+ * Persistent dashboard layout shared by every fight-loop phase. Plus a
+ * `monsterStage()` helper that picks the right Goober Bestiary animation
+ * class for the current phase (idle / walk / hurt / attack / death).
  */
 
+import { PHASE } from '@bossraid/shared';
 import { renderMonsterSVG, DEFAULT_APPEARANCE } from '@bossraid/shared/monster';
 
 import { el } from './chrome.js';
 
-/**
- * @param {{ left: HTMLElement, center: { stage: HTMLElement, overlays?: HTMLElement }, right: HTMLElement }} parts
- */
 export function buildDashboard({ left, center, right }) {
   const dash = el('div', 'dash');
   const lc = el('div', 'dash-col');
@@ -34,11 +23,8 @@ export function buildDashboard({ left, center, right }) {
 }
 
 /**
- * Build a monster-stage container with the inline SVG plus an absolutely-
- * positioned overlay layer for badges, banners, slot dots, etc.
- *
- * @param {object} appearance
- * @param {{ level?: number, idle?: boolean }} [opts]
+ * Build a monster-stage container with the inline SVG plus an overlay slot.
+ * `anim` is auto-picked from the room phase if not explicitly provided.
  */
 export function monsterStage(appearance, opts = {}) {
   const stage = el('div');
@@ -46,9 +32,25 @@ export function monsterStage(appearance, opts = {}) {
   const inner = el('div');
   inner.style.cssText = 'width: min(72%, 460px); aspect-ratio: 0.78; position: relative;';
   inner.innerHTML = renderMonsterSVG(appearance || DEFAULT_APPEARANCE, opts);
-  inner.firstElementChild.style.cssText = 'width:100%;height:100%;display:block;';
+  const first = inner.firstElementChild;
+  if (first) first.style.cssText = 'width:100%;height:100%;display:block;';
   stage.appendChild(inner);
   return { stage, sprite: inner };
+}
+
+/** Pick the right animation class given the room phase + monster status. */
+export function animForPhase(phase, monster) {
+  if (!monster || monster.status === 'dead') return 'death';
+  switch (phase) {
+    case PHASE.LOBBY: return 'walk';
+    case PHASE.FIGHT: return 'idle';
+    case PHASE.RESULTS: return 'idle';
+    case PHASE.LEVEL_UP: return 'idle';
+    case PHASE.DEATH: return 'death';
+    case PHASE.CREATION: return 'spawn';
+    case PHASE.IDLE:
+    default: return 'idle';
+  }
 }
 
 /** Center-aligned banner strip pinned to the top of the stage. */

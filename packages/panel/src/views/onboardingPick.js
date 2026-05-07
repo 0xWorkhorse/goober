@@ -1,26 +1,20 @@
 /**
- * 3-up onboarding pick — the "click 2" of the 2-click flow. Auto-rolls 3
- * monster candidates server-side (random appearance + ability set + balanced
- * stats), shows them as cards, click → fight.
+ * 3-up onboarding pick — the "click 2" of the 2-click flow. Three random
+ * preset monsters from the Goober Bestiary (Bean Guy, Box Head, Worry Egg…)
+ * with their hand-drawn ink sprites and taglines. Click → fight.
  *
- * The streamer can `↻ reroll all` to roll new candidates or
- * `＋ build from scratch` to fall through to the legacy slot-by-slot creator.
+ * "↻ reroll all" rolls fresh candidates from the bestiary.
+ * "＋ build from scratch" falls through to the legacy slot-by-slot creator.
  */
 
 import {
-  ABILITIES_PER_MONSTER, ABILITY_BY_ID, ABILITY_POOL,
-  C2S, PALETTES, PART_SLOTS, PART_SLOT_NAMES,
+  ABILITIES_PER_MONSTER, ABILITY_BY_ID, ABILITY_POOL, BESTIARY,
+  C2S, PRESET_KEYS,
   STARTING_STAT_POINTS, STAT_DEFS,
 } from '@bossraid/shared';
 import { renderMonsterSVG } from '@bossraid/shared/monster';
 
 import { el, escapeHtml } from './chrome.js';
-
-// Picky pre-baked names for the 3 candidates. Designer's flavor.
-const NAME_POOL = [
-  'Borb', 'Wally', 'Yolkrid', 'Snoot', 'Brunch', 'Glubbins',
-  'Cheese', 'Wiggle', 'Toastie', 'Pebble', 'Hex', 'Oink',
-];
 
 export function renderOnboardingPick(root, ctx) {
   if (!ctx.pickUi) ctx.pickUi = { candidates: rollCandidates(), seed: 1 };
@@ -43,9 +37,12 @@ export function renderOnboardingPick(root, ctx) {
   ui.candidates.forEach((c, i) => {
     const card = el('div', 'pick-card' + (i === 1 ? ' featured' : ''));
     const preview = el('div', 'preview');
-    preview.innerHTML = renderMonsterSVG(c.appearance, { level: 1 });
+    preview.innerHTML = renderMonsterSVG({ presetKey: c.presetKey, expr: c.expr, variant: c.variant }, { level: 1, anim: 'spawn' });
     const name = el('div', 'name');
     name.textContent = c.name;
+    const tag = el('div');
+    tag.style.cssText = 'font-family:var(--font-marker);font-size:13px;color:var(--ink-2);text-align:center;margin-top:-2px;font-style:italic;';
+    tag.textContent = c.tagline;
     const statRow = el('div', 'stat-row');
     statRow.innerHTML = `
       <span class="chip">HP ${derived(c, 'hp')}</span>
@@ -58,9 +55,9 @@ export function renderOnboardingPick(root, ctx) {
     ).join('');
     const cta = el('button', 'btn primary lg');
     cta.style.cssText = 'margin-top:10px;align-self:stretch;';
-    cta.textContent = `Fight with ${c.name} →`;
+    cta.textContent = `Fight with ${c.name.split(' ')[0]} →`;
     cta.addEventListener('click', () => commitCandidate(ctx, c));
-    card.append(preview, name, statRow, abilRow, cta);
+    card.append(preview, name, tag, statRow, abilRow, cta);
     if (i === 1) {
       const note = el('div', 'sticky');
       note.style.cssText = 'position:absolute;top:-16px;right:-12px;font-size:15px;';
@@ -103,23 +100,33 @@ export function renderOnboardingPick(root, ctx) {
 // ─── Candidate generation ──────────────────────────────────────────────────
 
 function rollCandidates() {
-  return [
-    { name: pick(NAME_POOL) + ' ' + pick(['the Bean', 'Bean', 'Pup', 'Mk II']), appearance: rollAppearance(), abilityIds: rollAbilities(), spent: { hp: 6, attack: 1, defense: 0, speed: 1, crit: 1, abilityPower: 1 } },
-    { name: pick(NAME_POOL) + ' Box', appearance: rollAppearance(), abilityIds: rollAbilities(), spent: { hp: 8, attack: 0, defense: 2, speed: 0, crit: 0, abilityPower: 0 } },
-    { name: pick(NAME_POOL) + ' Egg', appearance: rollAppearance(), abilityIds: rollAbilities(), spent: { hp: 4, attack: 3, defense: 0, speed: 1, crit: 2, abilityPower: 0 } },
+  // Three distinct preset keys, three different stat profiles.
+  const keys = shuffle([...PRESET_KEYS]).slice(0, 3);
+  const profiles = [
+    { hp: 6, attack: 1, defense: 0, speed: 1, crit: 1, abilityPower: 1 },
+    { hp: 8, attack: 0, defense: 2, speed: 0, crit: 0, abilityPower: 0 },
+    { hp: 4, attack: 3, defense: 0, speed: 1, crit: 2, abilityPower: 0 },
   ];
+  return keys.map((k, i) => {
+    const meta = BESTIARY[k];
+    return {
+      presetKey: k,
+      name: meta.name,
+      tagline: meta.tagline,
+      expr: meta.defaultExpr,
+      variant: 'normal',
+      abilityIds: rollAbilities(),
+      spent: profiles[i],
+    };
+  });
 }
 
-function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
-
-function rollAppearance() {
-  const a = {};
-  for (const slot of PART_SLOT_NAMES) {
-    const c = PART_SLOTS[slot];
-    a[slot] = c[(Math.random() * c.length) | 0];
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  a.paletteIdx = (Math.random() * PALETTES.length) | 0;
-  return a;
+  return arr;
 }
 
 function rollAbilities() {
@@ -129,7 +136,6 @@ function rollAbilities() {
     pickFrom(ABILITY_POOL.utility),
   ].map((a) => a.id);
 }
-
 function pickFrom(arr) { return arr[(Math.random() * arr.length) | 0]; }
 
 function derived(c, stat) {
@@ -138,15 +144,21 @@ function derived(c, stat) {
 }
 
 // ─── Commit a candidate to the server ──────────────────────────────────────
-
 function commitCandidate(ctx, candidate) {
-  // The server side requires going through the full creator handshake. We
-  // pipeline it: appearance → abilities → stats → confirm. For demo mode
-  // these are all noops that resolve instantly via the fake WS client.
   ctx.send(C2S.START_NEW_MONSTER, {});
-  // Wait one tick to give the server time to land in CREATION phase.
   setTimeout(() => {
-    ctx.send(C2S.PICK_APPEARANCE, { appearance: candidate.appearance });
+    // Send the preset key inside the appearance config. The server's existing
+    // creator validates appearance, so we tunnel presetKey alongside whatever
+    // legacy slot fields it expects (kept null).
+    ctx.send(C2S.PICK_APPEARANCE, {
+      appearance: {
+        presetKey: candidate.presetKey,
+        expr: candidate.expr,
+        variant: candidate.variant,
+        // Legacy slot fields included for back-compat with the validator.
+        body: 'blob', eyes: 'googly', mouth: 'fangs', horns: 'antennae', arms: 'noodle', feet: 'tentacles', paletteIdx: 0,
+      },
+    });
     ctx.send(C2S.PICK_ABILITIES, { abilityIds: candidate.abilityIds });
     ctx.send(C2S.ALLOCATE_STARTING_STATS, { spent: padToBudget(candidate.spent) });
     ctx.send(C2S.CONFIRM_MONSTER, { name: candidate.name });
@@ -157,14 +169,13 @@ function commitCandidate(ctx, candidate) {
 function padToBudget(spent) {
   const total = Object.values(spent).reduce((s, n) => s + (n || 0), 0);
   if (total === STARTING_STAT_POINTS) return spent;
-  // Pad/trim with HP to hit budget.
   const next = { ...spent };
   next.hp = (next.hp || 0) + (STARTING_STAT_POINTS - total);
   return next;
 }
 
-// Also export for the app shell to consume.
-export const __for_test = { rollCandidates };
+void ABILITIES_PER_MONSTER;
+void ABILITY_BY_ID;
 
-// Compat re-export for legacy import in app.js
+// Compat re-export
 export const renderCreator = renderOnboardingPick;

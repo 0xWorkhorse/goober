@@ -19,6 +19,7 @@ import {
   PALETTES,
   PART_SLOTS,
   PHASE,
+  PRESET_KEYS,
   S2C,
   STARTING_REROLL_TOKENS,
   STARTING_STAT_POINTS,
@@ -162,6 +163,12 @@ function isDraft(room) {
 
 function isValidAppearance(a) {
   if (!a || typeof a !== 'object') return false;
+  // presetKey, expr, variant are optional metadata. If presetKey is present
+  // it must be a known bestiary preset.
+  if (a.presetKey != null && !PRESET_KEYS.includes(a.presetKey)) return false;
+  if (a.expr != null && !['idle', 'angry', 'happy', 'worry', 'hurt', 'defeated'].includes(a.expr)) return false;
+  if (a.variant != null && !['normal', 'poison', 'fire', 'ice', 'shadow'].includes(a.variant)) return false;
+  // Slot fields are still required for back-compat (legacy fall-through path).
   for (const slot of Object.keys(PART_SLOTS)) {
     if (!PART_SLOTS[slot].includes(a[slot])) return false;
   }
