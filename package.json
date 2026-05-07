@@ -1,0 +1,27 @@
+{
+  "name": "bossraid",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "lint": "eslint packages",
+    "format": "prettier --write \"packages/**/*.{js,json,css,html}\" \"scripts/**/*.js\"",
+    "test": "npm run test --workspaces --if-present",
+    "check:locales": "node scripts/check-locales.js",
+    "build": "node scripts/build-prod.js",
+    "start": "node packages/server/src/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "eslint": "^9.0.0",
+    "prettier": "^3.3.0",
+    "vitest": "^2.0.0"
+  }
+}

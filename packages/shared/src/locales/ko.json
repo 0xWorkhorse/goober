@@ -1,0 +1,59 @@
+{
+  "abilities": {
+    "cleave": "베기",
+    "enrage": "분노",
+    "frost_nova": "서리 노바",
+    "heal": "회복",
+    "inferno": "인페르노",
+    "lightning": "번개",
+    "pierce": "관통",
+    "poison_cloud": "독구름",
+    "roar": "포효",
+    "shield": "보호막",
+    "slam": "내려찍기",
+    "stomp": "짓밟기"
+  },
+  "commands": {
+    "attack": ["!공격", "!a"],
+    "block": ["!방어", "!b"],
+    "heal": ["!힐", "!h"],
+    "join": ["!참가", "!fight"]
+  },
+  "fight": {
+    "defeat": "보스 승리!",
+    "victory": "채팅 승리!"
+  },
+  "lobby": {
+    "countdown": "{seconds}초 후 시작",
+    "joining": "!참가 입력해서 같이 싸우자!"
+  },
+  "panel": {
+    "abandon_monster": "새 몬스터 만들기",
+    "ability_cooldown": "{seconds}초",
+    "abilityPower": "스킬 위력",
+    "allocate_starting": "시작 포인트 {points}개 분배",
+    "attack": "공격력",
+    "confirm_monster": "확인",
+    "create_monster": "새 몬스터 생성",
+    "crit": "치명타 확률",
+    "death_title": "몬스터가 쓰러졌다",
+    "defense": "방어력",
+    "graveyard_title": "몬스터 무덤",
+    "hp": "체력",
+    "level_up_title": "스탯 포인트 {points}개 분배",
+    "monster_name_placeholder": "몬스터 이름",
+    "open_lobby": "로비 열기",
+    "reroll_ability": "리롤 ({tokens} 남음)",
+    "revive": "부활 (레거시 {cost})",
+    "speed": "속도",
+    "start_lobby": "로비 열기"
+  },
+  "system_chat": {
+    "boss_defeated": "{monsterName} 처치! 드롭: {names}",
+    "boss_victorious": "{monsterName}는 아직 건재. GG.",
+    "chatter_down": "{name} 쓰러짐.",
+    "chatter_joined": "{name} 참전!",
+    "fight_starting": "전투 시작! !공격 으로 공격, !힐 로 회복, !방어 로 방어.",
+    "roster_full": "로비 꽉 참 — 다음에 다시 시도!"
+  }
+}

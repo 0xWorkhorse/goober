@@ -1,0 +1,59 @@
+{
+  "abilities": {
+    "cleave": "talho",
+    "enrage": "enfurecer",
+    "frost_nova": "nova de gelo",
+    "heal": "curar",
+    "inferno": "inferno",
+    "lightning": "raio",
+    "pierce": "perfurar",
+    "poison_cloud": "nuvem tóxica",
+    "roar": "rugido",
+    "shield": "escudo",
+    "slam": "porrada",
+    "stomp": "pisotão"
+  },
+  "commands": {
+    "attack": ["!atacar", "!a"],
+    "block": ["!bloquear", "!b"],
+    "heal": ["!curar", "!c"],
+    "join": ["!entrar", "!luta"]
+  },
+  "fight": {
+    "defeat": "Monstro venceu!",
+    "victory": "Chat venceu!"
+  },
+  "lobby": {
+    "countdown": "Luta começa em {seconds}s",
+    "joining": "Digite !entrar pra lutar!"
+  },
+  "panel": {
+    "abandon_monster": "Começar um novo monstro",
+    "ability_cooldown": "{seconds}s",
+    "abilityPower": "poder de habilidade",
+    "allocate_starting": "Distribua {points} pontos iniciais",
+    "attack": "poder de ataque",
+    "confirm_monster": "Confirmar",
+    "create_monster": "Criar um novo monstro",
+    "crit": "chance de crítico",
+    "death_title": "Seu monstro caiu",
+    "defense": "defesa",
+    "graveyard_title": "Cemitério de monstros",
+    "hp": "vida",
+    "level_up_title": "Distribua {points} pontos de stats",
+    "monster_name_placeholder": "Nomeie seu monstro",
+    "open_lobby": "Abrir sala",
+    "reroll_ability": "Trocar ({tokens} restantes)",
+    "revive": "Reviver ({cost} de legado)",
+    "speed": "velocidade",
+    "start_lobby": "Abrir sala"
+  },
+  "system_chat": {
+    "boss_defeated": "{monsterName} foi derrotado! Drop pra: {names}",
+    "boss_victorious": "{monsterName} segue de pé. GG.",
+    "chatter_down": "{name} caiu.",
+    "chatter_joined": "{name} entrou na luta!",
+    "fight_starting": "Bora! !atacar pra atacar, !curar pra curar, !bloquear pra defender.",
+    "roster_full": "Sala lotada — entra na próxima!"
+  }
+}

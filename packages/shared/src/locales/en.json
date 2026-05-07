@@ -1,0 +1,59 @@
+{
+  "abilities": {
+    "cleave": "cleave",
+    "enrage": "enrage",
+    "frost_nova": "frost nova",
+    "heal": "heal",
+    "inferno": "inferno",
+    "lightning": "lightning",
+    "pierce": "pierce",
+    "poison_cloud": "poison cloud",
+    "roar": "roar",
+    "shield": "shield",
+    "slam": "slam",
+    "stomp": "stomp"
+  },
+  "commands": {
+    "attack": ["!attack", "!atk", "!a"],
+    "block": ["!block", "!b"],
+    "heal": ["!heal", "!h"],
+    "join": ["!join", "!fight"]
+  },
+  "fight": {
+    "defeat": "Boss wins!",
+    "victory": "Chat wins!"
+  },
+  "lobby": {
+    "countdown": "Fight starts in {seconds}s",
+    "joining": "Type !join to fight!"
+  },
+  "panel": {
+    "abandon_monster": "Start a new monster",
+    "ability_cooldown": "{seconds}s",
+    "abilityPower": "ability power",
+    "allocate_starting": "Allocate {points} starting points",
+    "attack": "attack power",
+    "confirm_monster": "Confirm",
+    "create_monster": "Create a new monster",
+    "crit": "crit chance",
+    "death_title": "Your monster has fallen",
+    "defense": "defense",
+    "graveyard_title": "Monster Graveyard",
+    "hp": "health",
+    "level_up_title": "Allocate {points} stat points",
+    "monster_name_placeholder": "Name your monster",
+    "open_lobby": "Open lobby",
+    "reroll_ability": "Reroll ({tokens} left)",
+    "revive": "Revive ({cost} legacy)",
+    "speed": "speed",
+    "start_lobby": "Open lobby"
+  },
+  "system_chat": {
+    "boss_defeated": "{monsterName} has been defeated! Drops to: {names}",
+    "boss_victorious": "{monsterName} stands victorious. GG.",
+    "chatter_down": "{name} has fallen.",
+    "chatter_joined": "{name} joined the fight!",
+    "fight_starting": "The fight begins! Type !attack to fight, !heal to heal allies, !block to defend.",
+    "roster_full": "Roster full — try the next fight!"
+  }
+}

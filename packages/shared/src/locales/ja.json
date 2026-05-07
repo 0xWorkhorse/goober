@@ -1,0 +1,59 @@
+{
+  "abilities": {
+    "cleave": "なぎ払い",
+    "enrage": "激怒",
+    "frost_nova": "フロストノヴァ",
+    "heal": "回復",
+    "inferno": "インフェルノ",
+    "lightning": "雷撃",
+    "pierce": "貫通",
+    "poison_cloud": "毒霧",
+    "roar": "咆哮",
+    "shield": "シールド",
+    "slam": "叩きつけ",
+    "stomp": "踏みつけ"
+  },
+  "commands": {
+    "attack": ["!こうげき", "!a"],
+    "block": ["!ぼうぎょ", "!b"],
+    "heal": ["!かいふく", "!h"],
+    "join": ["!さんか", "!fight"]
+  },
+  "fight": {
+    "defeat": "ボスの勝ち！",
+    "victory": "チャットの勝ち！"
+  },
+  "lobby": {
+    "countdown": "あと{seconds}秒で開始",
+    "joining": "!さんか でバトル参加！"
+  },
+  "panel": {
+    "abandon_monster": "新しいモンスターを作る",
+    "ability_cooldown": "{seconds}秒",
+    "abilityPower": "アビリティ威力",
+    "allocate_starting": "{points}ポイントを配分",
+    "attack": "攻撃力",
+    "confirm_monster": "決定",
+    "create_monster": "モンスター作成",
+    "crit": "クリ率",
+    "death_title": "モンスターが倒れた",
+    "defense": "防御",
+    "graveyard_title": "モンスター墓場",
+    "hp": "HP",
+    "level_up_title": "{points}ポイントを振り分け",
+    "monster_name_placeholder": "モンスター名",
+    "open_lobby": "ロビーを開く",
+    "reroll_ability": "リロール（残り{tokens}）",
+    "revive": "復活（レガシー{cost}）",
+    "speed": "速さ",
+    "start_lobby": "ロビーを開く"
+  },
+  "system_chat": {
+    "boss_defeated": "{monsterName}を倒した！戦利品：{names}",
+    "boss_victorious": "{monsterName}は健在。GG。",
+    "chatter_down": "{name}がやられた。",
+    "chatter_joined": "{name}参戦！",
+    "fight_starting": "戦闘開始！!こうげき で攻撃、!かいふく で回復、!ぼうぎょ で防御。",
+    "roster_full": "枠がいっぱい — 次回に！"
+  }
+}
