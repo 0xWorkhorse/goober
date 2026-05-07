@@ -1,91 +1,43 @@
 /**
- * Chatter sprite renderer — hand-drawn ink style. Deterministic appearance
- * from the username hash so the same chatter looks consistent across fights.
+ * Chatter sprite renderer — paper-card framed PFP. The chatter's Twitch
+ * profile picture sits inside a hand-drawn ink-stroked card with a small
+ * drop shadow. When no PFP URL is available yet (cache cold), falls back to
+ * a deterministic dicebear avatar so the slot is never empty.
+ *
+ * Block ring + downed state are still rendered as overlay strokes.
  */
 
 const INK = '#1a1614';
-const PAPER = '#fdfaf3';
 
-const BODY_SHAPES = ['round', 'oval', 'square', 'tall'];
-const HATS = ['none', 'cap', 'crown', 'horn'];
-
-function hashLogin(login) {
-  let h = 5381;
-  for (let i = 0; i < login.length; i++) h = ((h << 5) + h + login.charCodeAt(i)) | 0;
-  return Math.abs(h);
+function fallbackPfp(login) {
+  return `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(login)}&backgroundType=solid&backgroundColor=fdfaf3`;
 }
 
-function chatterDesign(login) {
-  const h = hashLogin(login);
-  const body = BODY_SHAPES[h % BODY_SHAPES.length];
-  const hat = HATS[(h >> 2) % HATS.length];
-  const hue = (h >> 4) % 360;
-  return { body, hat, hue };
+function escapeAttr(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 /**
- * Render a single chatter sprite as inline SVG.
- * @param {{login:string, hp:number, maxHp:number, blockedUntilMs?:number}} chatter
+ * Render a single chatter sprite as HTML. Composes a circular paper card
+ * around an `<img>` of the PFP plus optional block / downed overlays.
  */
-export function renderChatterSVG(chatter, now = Date.now()) {
-  const d = chatterDesign(chatter.login);
-  const accent = `hsl(${(d.hue + 40) % 360} 70% 60%)`;
-  const dim = chatter.hp <= 0 ? 0.35 : 1;
+export function renderChatterSprite(chatter, now = Date.now()) {
+  const url = chatter.pfpUrl || fallbackPfp(chatter.login);
+  const downed = chatter.hp <= 0;
   const blocking = chatter.blockedUntilMs && chatter.blockedUntilMs > now;
-
-  let bodyShape;
-  switch (d.body) {
-    case 'oval':
-      bodyShape = `<ellipse cx="40" cy="50" rx="22" ry="26" fill="${PAPER}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
-      break;
-    case 'square':
-      bodyShape = `<rect x="18" y="26" width="44" height="48" rx="10" fill="${PAPER}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
-      break;
-    case 'tall':
-      bodyShape = `<rect x="22" y="20" width="36" height="58" rx="14" fill="${PAPER}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
-      break;
-    case 'round':
-    default:
-      bodyShape = `<circle cx="40" cy="50" r="24" fill="${PAPER}" stroke="${INK}" stroke-width="3"/>`;
-  }
-
-  let hatShape = '';
-  switch (d.hat) {
-    case 'cap':
-      hatShape = `<rect x="22" y="14" width="36" height="10" rx="3" fill="${accent}" stroke="${INK}" stroke-width="2"/><rect x="46" y="22" width="14" height="4" rx="1" fill="${accent}" stroke="${INK}" stroke-width="2"/>`;
-      break;
-    case 'crown':
-      hatShape = `<polygon points="22,22 30,12 36,20 42,10 48,18 54,12 58,22" fill="#ffd166" stroke="${INK}" stroke-width="2"/>`;
-      break;
-    case 'horn':
-      hatShape = `<polygon points="36,24 40,8 44,24" fill="${accent}" stroke="${INK}" stroke-width="2"/>`;
-      break;
-    case 'none':
-    default:
-      hatShape = '';
-  }
-
-  // Sketch eyes + mouth
-  const face = `
-    <circle cx="32" cy="48" r="2.4" fill="${INK}"/>
-    <circle cx="48" cy="48" r="2.4" fill="${INK}"/>
-    <path d="M 30 60 q 10 6 20 0" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
-  `;
-
-  const blockRing = blocking
-    ? `<circle cx="40" cy="50" r="34" fill="none" stroke="#74c0fc" stroke-width="3" stroke-dasharray="4 3" opacity="0.85"/>`
-    : '';
-
-  return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" style="opacity:${dim}">
-    ${bodyShape}
-    ${hatShape}
-    ${face}
-    ${blockRing}
-  </svg>`;
+  const dim = downed ? 0.35 : 1;
+  return `
+    <div class="pfp-card" style="opacity:${dim}">
+      <img class="pfp-img" src="${escapeAttr(url)}" alt="" loading="lazy" decoding="async"
+           onerror="this.onerror=null;this.src='${escapeAttr(fallbackPfp(chatter.login))}'" />
+      ${blocking ? `<svg class="pfp-block" viewBox="0 0 80 80"><circle cx="40" cy="40" r="36" fill="none" stroke="#74c0fc" stroke-width="3" stroke-dasharray="4 3" opacity="0.85"/></svg>` : ''}
+      ${downed ? `<svg class="pfp-x" viewBox="0 0 80 80"><path d="M 18 18 L 62 62 M 62 18 L 18 62" stroke="${INK}" stroke-width="4" stroke-linecap="round" /></svg>` : ''}
+    </div>`;
 }
 
 /**
- * Mount/update a list of chatter sprites. Reuses existing DOM nodes by login.
+ * Mount/update a list of chatter sprites into a container. Reuses existing
+ * DOM nodes by login so the PFP `<img>` doesn't reload on every state delta.
  */
 export function syncChatterSprites(container, chatters, now = Date.now()) {
   const seen = new Set();
@@ -100,12 +52,20 @@ export function syncChatterSprites(container, chatters, now = Date.now()) {
       label.className = 'chatter-name';
       label.textContent = c.login;
       el.appendChild(label);
-      const svgWrap = document.createElement('div');
-      svgWrap.className = 'chatter-svg';
-      el.appendChild(svgWrap);
+      const wrap = document.createElement('div');
+      wrap.className = 'chatter-pfp';
+      el.appendChild(wrap);
       container.appendChild(el);
     }
-    el.querySelector('.chatter-svg').innerHTML = renderChatterSVG(c, now);
+    const wrap = el.querySelector('.chatter-pfp');
+    const newHtml = renderChatterSprite(c, now);
+    // Avoid replacing innerHTML if nothing relevant changed — keeps the <img>
+    // stable so it doesn't refetch.
+    const sig = `${c.pfpUrl || ''}|${c.hp <= 0}|${(c.blockedUntilMs && c.blockedUntilMs > now) ? 1 : 0}`;
+    if (wrap.dataset.sig !== sig) {
+      wrap.innerHTML = newHtml;
+      wrap.dataset.sig = sig;
+    }
     el.classList.toggle('chatter-down', c.hp <= 0);
   }
   for (const el of [...container.querySelectorAll('[data-chatter]')]) {

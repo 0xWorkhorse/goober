@@ -1,5 +1,5 @@
 import { el, escapeHtml } from './chrome.js';
-import { buildDashboard, monsterStage } from './dashboard.js';
+import { animForPhase, buildDashboard, monsterStage } from './dashboard.js';
 
 /** RESULTS phase view — banner + MVP list + total damage. */
 export function renderResults(root, ctx) {
@@ -13,7 +13,8 @@ export function renderResults(root, ctx) {
     w.innerHTML = '<h4>Top damage</h4>';
     for (const c of (r.mvpChatters || []).slice(0, 6)) {
       const row = el('div', 'stat-block');
-      row.innerHTML = `<span style="color:var(--accent-3)">${escapeHtml(c.login)}</span><span class="val">${c.damageDealt || 0}</span>`;
+      const url = c.pfpUrl || `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(c.login)}&backgroundType=solid&backgroundColor=fdfaf3`;
+      row.innerHTML = `<span class="pfp-row"><span class="pfp-mini"><img src="${escapeHtml(url)}" alt="" loading="lazy"/></span><span style="color:var(--accent-3)">${escapeHtml(c.login)}</span></span><span class="val">${c.damageDealt || 0}</span>`;
       w.appendChild(row);
     }
     if (!r.mvpChatters?.length) {
@@ -40,7 +41,8 @@ export function renderResults(root, ctx) {
     return w;
   })();
 
-  const { stage } = monsterStage(m?.appearance, { level: m?.level || 1, idle: false });
+  const anim = isVictory ? 'death' : animForPhase('results', m);
+  const { stage } = monsterStage(m?.appearance, { level: m?.level || 1, anim });
   const overlays = el('div');
   const banner = el('div');
   banner.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%, -90%);text-align:center;';

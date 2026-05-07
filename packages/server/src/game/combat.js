@@ -222,7 +222,11 @@ function endFight(c, victoryFor) {
   const sorted = [...c.chatterActions.entries()]
     .sort((a, b) => (b[1].damageDealt || 0) - (a[1].damageDealt || 0))
     .slice(0, 5)
-    .map(([login, v]) => ({ login, damageDealt: v.damageDealt || 0 }));
+    .map(([login, v]) => ({
+      login,
+      damageDealt: v.damageDealt || 0,
+      pfpUrl: room.chatters.get(login)?.pfpUrl || null,
+    }));
 
   broadcastRoom(room, S2C.RESULTS, {
     fightId,
@@ -617,6 +621,7 @@ function serializeChatter(ch) {
     maxHp: ch.maxHp,
     blockedUntilMs: ch.blockedUntilMs || 0,
     damageDealt: ch.damageDealt || 0,
+    pfpUrl: ch.pfpUrl || null,
   };
 }
 

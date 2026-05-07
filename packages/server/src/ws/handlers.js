@@ -184,6 +184,7 @@ function snapshot(room) {
       maxHp: c.maxHp,
       blockedUntilMs: c.blockedUntilMs || 0,
       damageDealt: c.damageDealt || 0,
+      pfpUrl: c.pfpUrl || null,
     })),
     bossHP: room.combat?.bossHP ?? 0,
     maxBossHP: room.combat?.maxBossHP ?? 0,

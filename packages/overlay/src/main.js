@@ -1,3 +1,4 @@
+import '@bossraid/shared/animations.css';
 import { startOverlay } from './app.js';
 
 const params = new URLSearchParams(location.search);

@@ -17,7 +17,7 @@ import {
   RENDER_TIER_HYBRID_MAX,
 } from '@bossraid/shared';
 
-import { renderChatterSVG } from './chatters.js';
+import { renderChatterSprite } from './chatters.js';
 
 export function pickTier(count) {
   if (count <= RENDER_TIER_FULL_MAX) return 'full';
@@ -130,4 +130,4 @@ export function syncMobSprites(container, mobs) {
 }
 
 /** Used for the test harness to compose a chatter sprite alongside mobs. */
-export const __forTest = { renderChatterSVG };
+export const __forTest = { renderChatterSprite };

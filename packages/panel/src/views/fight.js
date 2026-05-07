@@ -1,7 +1,7 @@
 import { ABILITY_BY_ID, C2S, PHASE } from '@bossraid/shared';
 
 import { el, escapeHtml } from './chrome.js';
-import { buildDashboard, monsterStage } from './dashboard.js';
+import { animForPhase, buildDashboard, monsterStage } from './dashboard.js';
 
 /**
  * FIGHT phase view — left column: top-damage MVPs + chat pulse stats.
@@ -16,7 +16,13 @@ export function renderFight(root, ctx) {
   const left = buildLeftMVPs(ctx);
   const right = buildAbilityPanel(ctx);
 
-  const { stage } = monsterStage(m.appearance, { level: m.level || 1 });
+  // Briefly play the attack animation for ~600ms after a damage event lands;
+  // otherwise the monster idles between hits.
+  const justHit = (ctx.state.events || []).some(
+    (e) => e.kind === 'BOSS_ABILITY' || e.kind === 'BOSS_BASIC_ATTACK' || e.kind === 'BOSS_CRIT',
+  );
+  const anim = justHit ? 'attack' : animForPhase(ctx.state.phase, m);
+  const { stage } = monsterStage(m.appearance, { level: m.level || 1, anim });
   const overlays = buildFightOverlays(ctx);
 
   root.appendChild(buildDashboard({ left, center: { stage, overlays }, right }));
@@ -28,7 +34,8 @@ function buildLeftMVPs(ctx) {
   const sorted = [...(ctx.state.chatters || [])].sort((a, b) => b.damageDealt - a.damageDealt).slice(0, 6);
   for (const c of sorted) {
     const r = el('div', 'stat-block');
-    r.innerHTML = `<span style="color:var(--accent-3)">${escapeHtml(c.login)}</span><span class="val">${c.damageDealt || 0}</span>`;
+    const url = c.pfpUrl || `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(c.login)}&backgroundType=solid&backgroundColor=fdfaf3`;
+    r.innerHTML = `<span class="pfp-row"><span class="pfp-mini"><img src="${escapeHtml(url)}" alt="" loading="lazy"/></span><span style="color:var(--accent-3)">${escapeHtml(c.login)}</span></span><span class="val">${c.damageDealt || 0}</span>`;
     wrap.appendChild(r);
   }
   if (!sorted.length) {

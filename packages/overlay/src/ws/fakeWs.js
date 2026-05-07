@@ -22,6 +22,10 @@ const FAKE_CHATTERS = [
 
 function randPick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 
+function demoPfp(login) {
+  return `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(login)}&backgroundType=solid&backgroundColor=fdfaf3`;
+}
+
 function randomMonster() {
   const bodies = ['blob', 'lump', 'stack'];
   const eyes = ['googly', 'beady', 'cyclops'];
@@ -89,7 +93,7 @@ export function createFakeOverlayClient(_url, onMessage) {
     const spawn = setInterval(() => {
       if (spawned >= total || phase !== PHASE.LOBBY) { clearInterval(spawn); return; }
       const login = FAKE_CHATTERS[spawned % FAKE_CHATTERS.length];
-      chatters.push({ login, hp: 100, maxHp: 100, blockedUntilMs: 0, damageDealt: 0 });
+      chatters.push({ login, hp: 100, maxHp: 100, blockedUntilMs: 0, damageDealt: 0, pfpUrl: demoPfp(login) });
       broadcastDelta([{ kind: 'CHATTER_JOINED', chatterId: login }]);
       spawned++;
     }, 280);
