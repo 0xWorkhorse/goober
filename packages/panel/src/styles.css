@@ -398,6 +398,26 @@ main { min-height: 100vh; }
   display: inline-flex; gap: 6px; align-items: center;
 }
 
+/* ─── Boss phase chip + telegraph alert ─────────────────────── */
+.lvl-badge.boss-phase { font-variant: small-caps; letter-spacing: 1px; }
+.lvl-badge.boss-phase.boss-phase-p2 { background: var(--accent); color: var(--paper); }
+.lvl-badge.boss-phase.boss-phase-p3 { background: var(--hp); color: var(--paper); }
+.tg-alert {
+  margin-top: 8px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--paper); border: 2.4px solid var(--hp); border-radius: 10px;
+  padding: 6px 12px; box-shadow: 0 3px 0 var(--ink);
+  font-family: var(--font-marker); font-weight: 700;
+  animation: brm-tg-blink 0.5s ease-in-out infinite alternate;
+}
+@keyframes brm-tg-blink {
+  from { background: var(--paper); }
+  to   { background: #fff7c2; }
+}
+.tg-name { color: var(--hp); letter-spacing: 1px; text-transform: uppercase; font-size: 13px; }
+.tg-secs { color: var(--ink); font-variant-numeric: tabular-nums; font-size: 14px; }
+.tg-hint { color: var(--ink-2); font-size: 13px; margin-left: auto; }
+
 /* ─── Floating damage numbers (in-stage SVG-text overlay) ────── */
 .flying-num {
   position: absolute;

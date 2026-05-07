@@ -63,6 +63,12 @@ export const EVENTS = Object.freeze({
   BOSS_HIT: 'BOSS_HIT',
   BOSS_CRIT: 'BOSS_CRIT',
   HERO_SPOTLIGHT: 'HERO_SPOTLIGHT',
+  // Telegraphed signature mechanic — the boss winds up a big move that
+  // chat has a chance to react to.
+  BOSS_TELEGRAPH_START: 'BOSS_TELEGRAPH_START',
+  BOSS_TELEGRAPH_HIT: 'BOSS_TELEGRAPH_HIT',
+  // Phase changes at HP thresholds — opening / enraged / desperation.
+  BOSS_PHASE_CHANGE: 'BOSS_PHASE_CHANGE',
 });
 
 /** Phase identifiers — the combat state machine. */

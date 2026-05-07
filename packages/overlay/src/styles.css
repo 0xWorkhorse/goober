@@ -197,6 +197,79 @@ html, body {
   padding: 2px 10px; border-radius: 4px; font-size: 13px;
 }
 
+/* ─── Boss telegraph banner ──────────────────────────────────── */
+.telegraph-layer {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  z-index: 8;
+  pointer-events: none;
+}
+.telegraph-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 0 5px 0 var(--ink), 0 0 0 4px rgba(214, 59, 47, 0.45);
+  padding: 14px 22px;
+  transform: rotate(-0.6deg);
+  animation: brm-tg-pulse 0.5s ease-in-out infinite alternate;
+}
+@keyframes brm-tg-pulse {
+  from { box-shadow: 0 5px 0 var(--ink), 0 0 0 4px rgba(214, 59, 47, 0.45); }
+  to   { box-shadow: 0 5px 0 var(--ink), 0 0 0 8px rgba(214, 59, 47, 0.65); }
+}
+.t-ring { width: 64px; height: 64px; flex-shrink: 0; }
+.t-body { display: flex; flex-direction: column; gap: 2px; min-width: 280px; }
+.t-name {
+  font-family: var(--font-marker);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 1.5px;
+  color: var(--hp);
+  text-transform: uppercase;
+}
+.t-flavor {
+  font-family: var(--font-hand);
+  font-size: 18px;
+  color: var(--ink-2);
+  margin-top: -2px;
+}
+.t-cta {
+  font-family: var(--font-marker);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  margin-top: 4px;
+}
+.t-target { color: var(--accent-3); }
+.cmd-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 2px solid var(--ink);
+  font-family: var(--font-marker);
+  color: var(--ink);
+  margin: 0 2px;
+}
+
+/* Highlight chatters targeted by the active telegraph */
+.chatter-sprite.t-targeted .pfp-card {
+  box-shadow: 0 0 0 3px var(--hp), 0 4px 0 var(--ink);
+  animation: brm-target-flash 0.5s ease-in-out infinite alternate;
+}
+@keyframes brm-target-flash {
+  from { transform: translateY(0) scale(1); }
+  to   { transform: translateY(-2px) scale(1.05); }
+}
+
+/* Phase banner: tinted intensity scales with phase id. */
+.phase-banner.boss-phase-p2 { background: var(--accent); }
+.phase-banner.boss-phase-p3 { background: var(--hp); }
+
 /* Connection-state pill (top-right). */
 .conn-pill {
   position: absolute;

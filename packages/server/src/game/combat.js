@@ -17,6 +17,7 @@ import {
   STAT_POINTS_PER_LEVEL,
   TICK_MS,
   bossAttackIntervalMs,
+  bossPhaseFor,
   computeAbilityDamage,
   computeBossBasicDamage,
   computeChatAttackDamage,
@@ -24,6 +25,7 @@ import {
   effectiveBossMaxHP,
   effectiveCritPct,
   effectiveDefensePct,
+  getSignature,
 } from '@bossraid/shared';
 
 import { aliveCount, ensureChatter, tryConsumeCooldown } from './chatters.js';
@@ -71,6 +73,11 @@ export function createCombat(room) {
     fightEndedAt: 0,
     aborted: false,
     bossDOTs: [],            // [{ kind, expiresAt, tickEveryMs, lastTickAt, tickDamage, source: 'chat' }]
+    // ── Phase + signature (boss phases + telegraphed attacks) ──────────────
+    bossPhaseId: 'p1',       // 'p1' | 'p2' | 'p3'  (opening / enraged / desperation)
+    nextSignatureAt: 0,      // ms timestamp; scheduled within tick()
+    telegraph: null,         // { sigName, target, targets, expiresAt, counter, signature } | null
+    counterChatters: new Set(), // set of logins who applied the right counter during the current wind-up
   };
   return c;
 }
@@ -118,6 +125,10 @@ function resetCombatForFight(c, room) {
   c.fightEndedAt = 0;
   c.aborted = false;
   c.bossDOTs = [];
+  c.bossPhaseId = 'p1';
+  c.nextSignatureAt = 0;
+  c.telegraph = null;
+  c.counterChatters = new Set();
   // Reset chatter state for a new fight.
   for (const ch of room.chatters.values()) {
     ch.hp = ch.maxHp;
@@ -144,7 +155,16 @@ function startFight(c) {
     c.bossHP = Math.max(1, Math.round(c.maxBossHP * 0.5));
     room._reviveHalfHp = false;
   }
+  // Schedule first signature mechanic. A short delay so chat has time to ramp.
+  const phase = currentBossPhase(c);
+  c.bossPhaseId = phase.id;
+  c.nextSignatureAt = Date.now() + 6_000;
   transition(room, PHASE.FIGHT, { durationMs: fightMs(), timeLeftMs: fightMs() });
+}
+
+function currentBossPhase(c) {
+  const ratio = c.maxBossHP > 0 ? c.bossHP / c.maxBossHP : 1;
+  return bossPhaseFor(ratio);
 }
 
 function resetBossHpForChatterCount(c, room) {
@@ -426,6 +446,7 @@ export function handleChatCommand(room, login, action, rawMessage) {
       ch.damageDealt += dmg;
       bumpChatterAction(c, login, { attacks: 1, damageDealt: dmg });
       pushEvent(c, { kind: EVENTS.CHATTER_ATTACK, chatterId: login, dmg });
+      maybeCreditTelegraphCounter(c, login, 'attack');
       // Hero spotlight on big hits (top-percentile of recent damage).
       if (dmg >= 60) pushEvent(c, { kind: EVENTS.HERO_SPOTLIGHT, chatterId: login, durationMs: HERO_SPOTLIGHT_DURATION_MS });
       if (c.bossHP <= 0) endFight(c, 'chat');
@@ -442,6 +463,7 @@ export function handleChatCommand(room, login, action, rawMessage) {
       ch.heals++;
       bumpChatterAction(c, login, { heals: 1 });
       pushEvent(c, { kind: EVENTS.CHATTER_HEAL, chatterId: login, target: target.login, amount: CHATTER_BASE_HEAL_AMOUNT });
+      maybeCreditTelegraphCounter(c, login, 'heal');
       return { handled: true };
     }
     case 'block': {
@@ -452,6 +474,7 @@ export function handleChatCommand(room, login, action, rawMessage) {
       ch.blocks++;
       bumpChatterAction(c, login, { blocks: 1 });
       pushEvent(c, { kind: EVENTS.CHATTER_BLOCK, chatterId: login });
+      maybeCreditTelegraphCounter(c, login, 'block');
       return { handled: true };
     }
     default:
@@ -529,8 +552,23 @@ function tick(c) {
       }
     }
 
-    // Boss melee tick
-    if (now >= c.nextBossAttackAt) {
+    // Phase tracking — emit BOSS_PHASE_CHANGE on threshold crossings.
+    const newPhase = currentBossPhase(c);
+    if (newPhase.id !== c.bossPhaseId) {
+      c.bossPhaseId = newPhase.id;
+      pushEvent(c, { kind: EVENTS.BOSS_PHASE_CHANGE, phaseId: newPhase.id, label: newPhase.label });
+    }
+
+    // Telegraph state machine: schedule, broadcast wind-up, resolve.
+    if (c.telegraph && now >= c.telegraph.expiresAt) {
+      resolveTelegraph(c, room);
+    }
+    if (!c.telegraph && now >= c.nextSignatureAt) {
+      startTelegraph(c, room, newPhase);
+    }
+
+    // Boss melee tick (suppressed during a wind-up so the signature gets focus).
+    if (!c.telegraph && now >= c.nextBossAttackAt) {
       const stats = deriveStats(room.monster.statPointsSpent);
       const attackBuff = c.bossBuffs.find((b) => b.kind === 'attack_buff');
       const speedBuff = c.bossBuffs.find((b) => b.kind === 'speed_buff');
@@ -547,7 +585,9 @@ function tick(c) {
         });
         if (target.hp <= 0) pushEvent(c, { kind: EVENTS.CHATTER_DOWN, chatterId: target.login });
       }
-      const interval = bossAttackIntervalMs(stats) / (1 + (speedBuff?.amount || 0));
+      // Phase scales basic-attack cadence — enraged hits 30% faster, desperation ~45%.
+      const phaseMult = newPhase.basicAttackMultiplier || 1.0;
+      const interval = bossAttackIntervalMs(stats) * phaseMult / (1 + (speedBuff?.amount || 0));
       c.nextBossAttackAt = now + interval;
     }
 
@@ -573,6 +613,116 @@ function pickRandomAliveChatter(roster) {
   const alive = [...roster.values()].filter((c) => c.hp > 0);
   if (!alive.length) return null;
   return alive[(Math.random() * alive.length) | 0];
+}
+
+// ─── Boss telegraph state machine ──────────────────────────────────────────
+function startTelegraph(c, room, phase) {
+  const presetKey = room.monster?.appearance?.presetKey || null;
+  const sig = getSignature(presetKey);
+  const targets = pickTelegraphTargets(room, sig);
+  if (!targets.length && sig.target !== 'utility') {
+    // Nobody alive to target — try again next tick.
+    c.nextSignatureAt = Date.now() + 1_500;
+    return;
+  }
+  const expiresAt = Date.now() + sig.windUpMs;
+  c.telegraph = {
+    sigName: sig.name,
+    flavor: sig.flavor,
+    counter: sig.counter,
+    counterReductionPct: sig.counterReductionPct,
+    damageMultiplier: sig.damageMultiplier,
+    target: sig.target,
+    effect: sig.effect || null,
+    vfx: sig.vfx,
+    targetLogins: targets.map((t) => t.login),
+    expiresAt,
+  };
+  c.counterChatters = new Set();
+  pushEvent(c, {
+    kind: EVENTS.BOSS_TELEGRAPH_START,
+    sigName: sig.name,
+    flavor: sig.flavor,
+    counter: sig.counter,
+    target: sig.target,
+    targets: c.telegraph.targetLogins,
+    durationMs: sig.windUpMs,
+    expiresAt,
+    vfx: sig.vfx,
+    phaseId: phase.id,
+  });
+}
+
+function pickTelegraphTargets(room, sig) {
+  const alive = [...room.chatters.values()].filter((c) => c.hp > 0);
+  if (!alive.length) return [];
+  if (sig.target === 'all') return alive;
+  if (sig.target === 'half') {
+    // Random half (rounded up).
+    const shuffled = [...alive].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.ceil(alive.length / 2));
+  }
+  if (sig.target === 'one') return [alive[(Math.random() * alive.length) | 0]];
+  return []; // utility / self_buff
+}
+
+function resolveTelegraph(c, room) {
+  const t = c.telegraph;
+  c.telegraph = null;
+  // Schedule next signature based on the current phase.
+  const phase = currentBossPhase(c);
+  c.nextSignatureAt = Date.now() + phase.signatureIntervalMs;
+
+  const stats = deriveStats(room.monster.statPointsSpent);
+  // Utility signatures: only damage on a miss; otherwise apply the effect.
+  if (t.target === 'utility') {
+    const cancelled = c.counterChatters.size > 0; // any chatter !attacked → cancel
+    if (cancelled) {
+      pushEvent(c, { kind: EVENTS.BOSS_TELEGRAPH_HIT, sigName: t.sigName, cancelled: true, vfx: t.vfx });
+      return;
+    }
+    if (t.effect?.kind === 'cooldown_extend') {
+      const extendMs = t.effect.ms || 5_000;
+      const now = Date.now();
+      for (const ch of room.chatters.values()) {
+        if (ch.hp > 0) ch.lastActionMs = Math.max(ch.lastActionMs, now - 0) + extendMs;
+      }
+    }
+    pushEvent(c, { kind: EVENTS.BOSS_TELEGRAPH_HIT, sigName: t.sigName, effect: t.effect?.kind, vfx: t.vfx });
+    return;
+  }
+
+  // Damage signatures: hit each target, reducing damage for chatters who applied the right counter.
+  const baseDmg = Math.max(1, Math.round((stats.attack || 25) * (t.damageMultiplier || 1)));
+  const hits = [];
+  for (const login of t.targetLogins) {
+    const ch = room.chatters.get(login);
+    if (!ch || ch.hp <= 0) continue;
+    let dmg = baseDmg;
+    if (c.counterChatters.has(login)) {
+      dmg = Math.max(1, Math.round(dmg * (1 - (t.counterReductionPct || 0) / 100)));
+    }
+    const taken = applyDamageToChatter(ch, dmg);
+    hits.push({ login, dmg: taken, mitigated: c.counterChatters.has(login) });
+    if (ch.hp <= 0) pushEvent(c, { kind: EVENTS.CHATTER_DOWN, chatterId: ch.login });
+  }
+  pushEvent(c, {
+    kind: EVENTS.BOSS_TELEGRAPH_HIT,
+    sigName: t.sigName,
+    hits,
+    vfx: t.vfx,
+    countered: c.counterChatters.size,
+  });
+}
+
+/** Called from chat-command handlers when a chatter's action might count as the wind-up counter. */
+export function maybeCreditTelegraphCounter(c, login, action) {
+  if (!c?.telegraph) return;
+  if (c.telegraph.counter !== action) return;
+  if (c.telegraph.target === 'one' || c.telegraph.target === 'half') {
+    if (!c.telegraph.targetLogins.includes(login)) return;
+  }
+  c.counterChatters.add(login);
 }
 
 // ─── Broadcasting ───────────────────────────────────────────────────────────
@@ -606,6 +756,18 @@ function broadcastSnapshot(room) {
     bossHP: c?.bossHP ?? 0,
     maxBossHP: c?.maxBossHP ?? 0,
     bossShield: c?.bossShield ?? 0,
+    bossPhaseId: c?.bossPhaseId || 'p1',
+    telegraph: c?.telegraph
+      ? {
+          sigName: c.telegraph.sigName,
+          flavor: c.telegraph.flavor,
+          counter: c.telegraph.counter,
+          target: c.telegraph.target,
+          targets: c.telegraph.targetLogins,
+          remainingMs: Math.max(0, c.telegraph.expiresAt - now),
+          vfx: c.telegraph.vfx,
+        }
+      : null,
     chatters: [...room.chatters.values()].map(serializeChatter),
     cooldowns,
     events,

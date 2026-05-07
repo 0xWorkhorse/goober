@@ -17,6 +17,8 @@ import {
   S2C,
   STARTING_REROLL_TOKENS,
   STAT_NAMES,
+  bossPhaseFor,
+  getSignature,
 } from '@bossraid/shared';
 
 const FAKE_CHATTERS = [
@@ -87,6 +89,10 @@ export function createFakeWsClient(_url, onMessage) {
   let lastResults = null;
   let legacyPoints = 0;
   let timer = null;
+  // Boss phase + telegraph scripted state.
+  let bossPhaseId = 'p1';
+  let telegraph = null;
+  let nextSignatureAt = 0;
 
   function envelope(type, payload) { return { v: PROTOCOL_VERSION, type, payload }; }
   function deliver(type, payload) { setTimeout(() => onMessage(envelope(type, payload)), 0); }
@@ -113,6 +119,10 @@ export function createFakeWsClient(_url, onMessage) {
       bossHP,
       maxBossHP,
       bossShield: 0,
+      bossPhaseId,
+      telegraph: telegraph
+        ? { ...telegraph, remainingMs: Math.max(0, telegraph.expiresAt - Date.now()) }
+        : null,
       chatters,
       cooldowns,
       events,
@@ -120,6 +130,7 @@ export function createFakeWsClient(_url, onMessage) {
       monster,
     });
   }
+
 
   function setPhase(next, payload = {}) {
     phase = next;
@@ -158,11 +169,67 @@ export function createFakeWsClient(_url, onMessage) {
 
   function startFight() {
     phaseEndsAt = Date.now() + T.FIGHT;
+    bossPhaseId = 'p1';
+    nextSignatureAt = Date.now() + 4_000;
+    telegraph = null;
     setPhase(PHASE.FIGHT, { durationMs: T.FIGHT, timeLeftMs: T.FIGHT });
     // Combat tick: chatters attack, boss occasionally casts ability.
     const tick = setInterval(() => {
       if (phase !== PHASE.FIGHT) { clearInterval(tick); return; }
       const events = [];
+
+      // Phase tracking for the demo.
+      const ratio = maxBossHP > 0 ? bossHP / maxBossHP : 1;
+      const newPhase = bossPhaseFor(ratio);
+      if (newPhase.id !== bossPhaseId) {
+        bossPhaseId = newPhase.id;
+        events.push({ kind: 'BOSS_PHASE_CHANGE', phaseId: newPhase.id, label: newPhase.label });
+      }
+
+      // Telegraph: schedule, hold for wind-up, then resolve as a damage hit.
+      if (telegraph && Date.now() >= telegraph.expiresAt) {
+        const tg = telegraph;
+        telegraph = null;
+        nextSignatureAt = Date.now() + (newPhase.signatureIntervalMs || 16_000);
+        const aliveTargets = chatters.filter((c) => c.hp > 0 && tg.targets.includes(c.login));
+        const baseDmg = 60;
+        for (const t of aliveTargets) {
+          const dmg = baseDmg;
+          t.hp = Math.max(0, t.hp - dmg);
+          if (t.hp <= 0) events.push({ kind: 'CHATTER_DOWN', chatterId: t.login });
+        }
+        events.push({ kind: 'BOSS_TELEGRAPH_HIT', sigName: tg.sigName, vfx: tg.vfx, hits: aliveTargets.map((t) => ({ login: t.login, dmg: baseDmg, mitigated: false })) });
+      }
+      if (!telegraph && Date.now() >= nextSignatureAt) {
+        const sig = getSignature(monster?.appearance?.presetKey || 'bean');
+        const alive = chatters.filter((c) => c.hp > 0);
+        let targets = [];
+        if (alive.length) {
+          if (sig.target === 'all') targets = alive;
+          else if (sig.target === 'half') targets = alive.slice(0, Math.ceil(alive.length / 2));
+          else if (sig.target === 'one') targets = [alive[(Math.random() * alive.length) | 0]];
+        }
+        telegraph = {
+          sigName: sig.name,
+          flavor: sig.flavor,
+          counter: sig.counter,
+          target: sig.target,
+          targets: targets.map((t) => t.login),
+          vfx: sig.vfx,
+          expiresAt: Date.now() + sig.windUpMs,
+        };
+        events.push({
+          kind: 'BOSS_TELEGRAPH_START',
+          sigName: sig.name,
+          flavor: sig.flavor,
+          counter: sig.counter,
+          target: sig.target,
+          targets: telegraph.targets,
+          durationMs: sig.windUpMs,
+          vfx: sig.vfx,
+          phaseId: bossPhaseId,
+        });
+      }
       // Chatter attacks
       for (const c of chatters) {
         if (c.hp <= 0) continue;
