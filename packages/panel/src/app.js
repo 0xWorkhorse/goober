@@ -9,6 +9,7 @@ import { renderLevelUp } from './views/levelUp.js';
 import { renderLobby } from './views/lobby.js';
 import { renderLogin } from './views/login.js';
 import { renderResults } from './views/results.js';
+import { createFakeWsClient, isDemoBuild } from './ws/fakeWs.js';
 import { createWsClient } from './ws/client.js';
 
 /**
@@ -21,11 +22,15 @@ export async function startPanel(root) {
 
   // ── Auth check ──────────────────────────────────────────────────────────
   let me;
-  try {
-    const r = await fetch('/auth/me');
-    if (r.ok) me = await r.json();
-  } catch { /* ignore */ }
-  if (!me) { renderLogin(root); return; }
+  if (isDemoBuild()) {
+    me = { channelId: 'demo', login: 'demo_streamer', displayName: 'Demo Streamer', locale: 'en' };
+  } else {
+    try {
+      const r = await fetch('/auth/me');
+      if (r.ok) me = await r.json();
+    } catch { /* ignore */ }
+    if (!me) { renderLogin(root); return; }
+  }
 
   const state = {
     phase: PHASE.IDLE,
@@ -75,14 +80,16 @@ export async function startPanel(root) {
   });
 
   // ── WebSocket ───────────────────────────────────────────────────────────
-  const wsUrl = computeWsUrl();
-  const client = createWsClient(wsUrl, (msg) => {
+  const useDemo = isDemoBuild();
+  const wsUrl = useDemo ? 'demo://' : computeWsUrl();
+  const factory = useDemo ? createFakeWsClient : createWsClient;
+  const client = factory(wsUrl, (msg) => {
     handleServerMessage(msg);
     state.connected = true;
     updateConnPill();
     rerender();
   });
-  client.send(C2S.HELLO_PANEL, { channelId: me.channelId });
+  if (!useDemo) client.send(C2S.HELLO_PANEL, { channelId: me.channelId });
 
   function handleServerMessage(msg) {
     switch (msg.type) {

@@ -1,7 +1,12 @@
 import path from 'node:path';
 import { defineConfig } from 'vite';
 
+// VITE_BASE controls the asset base path. For GitHub Pages, build with
+//   VITE_BASE=/goober/overlay/ so deep links and asset URLs resolve.
+const base = process.env.VITE_BASE || '/';
+
 export default defineConfig({
+  base,
   server: {
     port: 5173,
     proxy: {
