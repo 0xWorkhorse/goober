@@ -1,0 +1,59 @@
+{
+  "abilities": {
+    "cleave": "tajo",
+    "enrage": "enfurecer",
+    "frost_nova": "nova de hielo",
+    "heal": "curar",
+    "inferno": "infierno",
+    "lightning": "rayo",
+    "pierce": "perforar",
+    "poison_cloud": "nube tóxica",
+    "roar": "rugido",
+    "shield": "escudo",
+    "slam": "golpe",
+    "stomp": "pisotón"
+  },
+  "commands": {
+    "attack": ["!atacar", "!a"],
+    "block": ["!bloquear", "!b"],
+    "heal": ["!curar", "!c"],
+    "join": ["!pelea", "!unirse"]
+  },
+  "fight": {
+    "defeat": "¡El monstruo gana!",
+    "victory": "¡Chat gana!"
+  },
+  "lobby": {
+    "countdown": "La pelea empieza en {seconds}s",
+    "joining": "¡Escribe !pelea para luchar!"
+  },
+  "panel": {
+    "abandon_monster": "Empezar un nuevo monstruo",
+    "ability_cooldown": "{seconds}s",
+    "abilityPower": "poder de habilidad",
+    "allocate_starting": "Asigna {points} puntos iniciales",
+    "attack": "poder de ataque",
+    "confirm_monster": "Confirmar",
+    "create_monster": "Crear un nuevo monstruo",
+    "crit": "prob. crítico",
+    "death_title": "Tu monstruo ha caído",
+    "defense": "defensa",
+    "graveyard_title": "Cementerio de monstruos",
+    "hp": "salud",
+    "level_up_title": "Asigna {points} puntos de stats",
+    "monster_name_placeholder": "Nombra a tu monstruo",
+    "open_lobby": "Abrir sala",
+    "reroll_ability": "Reroll ({tokens} restantes)",
+    "revive": "Revivir ({cost} de legado)",
+    "speed": "velocidad",
+    "start_lobby": "Abrir sala"
+  },
+  "system_chat": {
+    "boss_defeated": "¡{monsterName} ha sido derrotado! Botín para: {names}",
+    "boss_victorious": "{monsterName} sigue en pie. GG.",
+    "chatter_down": "{name} ha caído.",
+    "chatter_joined": "¡{name} se unió a la pelea!",
+    "fight_starting": "¡Comienza la pelea! Escribe !atacar para luchar, !curar para sanar, !bloquear para defenderte.",
+    "roster_full": "Sala llena — ¡intenta en la próxima!"
+  }
+}

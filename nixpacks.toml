@@ -1,0 +1,15 @@
+# Nixpacks build config for Railway. The default Node detection works, but
+# better-sqlite3 needs Python + a C++ toolchain at build time, which Nixpacks
+# does not include by default for Node projects.
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "pkg-config", "gcc"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
