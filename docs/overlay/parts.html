@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>BossRaid — parts test harness</title>
+  <style>
+    body { background: #1a1a2e; color: #e7e7f2; font: 14px system-ui; margin: 0; }
+    #wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 20px; margin: 0 0 16px; }
+    .layout { display: grid; grid-template-columns: 360px 1fr; gap: 24px; }
+    .preview { background: #2a2a44; border-radius: 12px; padding: 16px; min-height: 360px;
+               display: flex; align-items: center; justify-content: center; }
+    .preview svg { width: 280px; height: auto; }
+    .controls { display: grid; gap: 14px; }
+    fieldset { border: 1px solid #3d3d5c; border-radius: 8px; padding: 8px 12px; }
+    legend { padding: 0 6px; color: #b8b8d8; }
+    .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .opts button { background: #3a3a5c; color: #fff; border: 1px solid #4a4a70;
+                   border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+    .opts button.on { background: #ff6b9d; border-color: #ffd166; }
+    .palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .palette button { aspect-ratio: 2/1; border: 2px solid transparent; border-radius: 6px; cursor: pointer; }
+    .palette button.on { border-color: #fff; }
+    #grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 16px; }
+    #grid .cell { background: #2a2a44; border-radius: 8px; aspect-ratio: 1; padding: 4px; }
+    #grid .cell svg { width: 100%; height: 100%; }
+    .row { display: flex; gap: 10px; align-items: center; }
+    .row button { background: #4a4a70; color: #fff; border: 0; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  </style>
+  <script type="module" crossorigin src="/goober/overlay/assets/parts-G1wPipsI.js"></script>
+  <link rel="modulepreload" crossorigin href="/goober/overlay/assets/monster-CcwV-0ih.js">
+  <link rel="stylesheet" crossorigin href="/goober/overlay/assets/monster-BK8gY4Ff.css">
+</head>
+<body>
+  <div id="wrap">
+    <h1>parts test harness</h1>
+    <div class="layout">
+      <div class="preview" id="preview"></div>
+      <div class="controls" id="controls"></div>
+    </div>
+    <div class="row" style="margin-top:24px">
+      <button id="randomize">Randomize</button>
+      <button id="cycle">Cycle 60 random monsters (preview grid)</button>
+    </div>
+    <div id="grid"></div>
+  </div>
+</body>
+</html>

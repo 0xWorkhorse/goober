@@ -11,6 +11,7 @@ import { buildRenderPlan, createSpotlightTracker, syncMobSprites } from './rende
 import { createParticleSystem } from './render/particles.js';
 import { createShake } from './render/shake.js';
 import { buildVfxHandlers } from './render/vfx.js';
+import { createFakeOverlayClient, isDemoBuild } from './ws/fakeWs.js';
 import { createWsClient } from './ws/client.js';
 
 /**
@@ -87,13 +88,15 @@ export function startOverlay({ stage, channelId }) {
   });
 
   // ── WebSocket ───────────────────────────────────────────────────────────
-  const wsUrl = computeWsUrl();
-  const client = createWsClient(wsUrl, (msg) => {
+  const useDemo = isDemoBuild();
+  const wsUrl = useDemo ? 'demo://' : computeWsUrl();
+  const factory = useDemo ? createFakeOverlayClient : createWsClient;
+  const client = factory(wsUrl, (msg) => {
     handleServerMessage(msg);
     state.connected = true;
     updateConnPill();
   });
-  client.send(C2S.HELLO_OVERLAY, { channelId, lang: i18n.locale });
+  if (!useDemo) client.send(C2S.HELLO_OVERLAY, { channelId, lang: i18n.locale });
 
   function handleServerMessage(msg) {
     switch (msg.type) {

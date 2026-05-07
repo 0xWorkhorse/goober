@@ -16,6 +16,7 @@
     "test": "npm run test --workspaces --if-present",
     "check:locales": "node scripts/check-locales.js",
     "build": "node scripts/build-prod.js",
+    "build:demo": "node scripts/build-static-demo.js",
     "start": "node packages/server/src/index.js"
   },
   "devDependencies": {
