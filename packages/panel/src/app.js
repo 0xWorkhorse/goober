@@ -1,26 +1,27 @@
 import { C2S, PHASE, S2C } from '@bossraid/shared';
 
 import { resolveI18n } from './i18n/index.js';
-import { renderCreator } from './views/creator.js';
+import { ChatPulse, renderTopBar, el } from './views/chrome.js';
 import { renderDeath } from './views/death.js';
 import { renderFight } from './views/fight.js';
 import { renderGraveyard } from './views/graveyard.js';
 import { renderLevelUp } from './views/levelUp.js';
-import { renderLobby } from './views/lobby.js';
+import { renderIdleOrLobby } from './views/lobby.js';
 import { renderLogin } from './views/login.js';
+import { renderObsHandoff } from './views/obs.js';
+import { renderOnboardingPick } from './views/onboardingPick.js';
 import { renderResults } from './views/results.js';
 import { createFakeWsClient, isDemoBuild } from './ws/fakeWs.js';
 import { createWsClient } from './ws/client.js';
 
 /**
- * Panel app shell. Routes between login / lobby / fight / results based on
- * server-pushed phase. Step 10 adds the creator view; step 11 adds level-up
- * + death + graveyard.
+ * Top-level panel shell. Persistent dashboard chrome (top bar + chat-pulse
+ * strip) wraps every phase view. Phase-specific UIs render into the
+ * `.brm-view` slot.
  */
 export async function startPanel(root) {
   const i18n = resolveI18n();
 
-  // ── Auth check ──────────────────────────────────────────────────────────
   let me;
   if (isDemoBuild()) {
     me = { channelId: 'demo', login: 'demo_streamer', displayName: 'Demo Streamer', locale: 'en' };
@@ -40,44 +41,31 @@ export async function startPanel(root) {
     maxBossHP: 0,
     timeLeftMs: 0,
     cooldowns: {},
+    events: [],
     connected: false,
+    victory: false,
   };
   let lastResults = null;
   const ctx = {
     state, me,
     send: null, rerender: null,
-    creatorUi: null, levelUi: null,
+    pickUi: null, levelUi: null, editingSlot: null,
     pendingAbilityRoll: null, pendingAbilityRollSlot: null,
     legacyPoints: 0,
+    showGraveyard: false,
+    showObs: false,
+    obsAcknowledged: false,
+    useFullCreator: false,
   };
 
-  // ── Header ──────────────────────────────────────────────────────────────
+  // ── Mount the persistent shell ──────────────────────────────────────────
   root.innerHTML = '';
-  const header = document.createElement('div');
-  header.className = 'header';
-  header.innerHTML = `
-    <h1>BossRaid</h1>
-    <div class="row" style="gap:14px">
-      <span class="who">@${escapeHtml(me.login)}</span>
-      <span class="conn-pill" id="conn">connecting…</span>
-      <button class="ghost" id="graveyard">Graveyard</button>
-      <button class="ghost" id="logout">Sign out</button>
-    </div>
-  `;
-  root.appendChild(header);
-
-  const view = document.createElement('div');
-  view.id = 'view';
-  root.appendChild(view);
-
-  document.getElementById('logout').addEventListener('click', async () => {
-    await fetch('/auth/logout', { method: 'POST' });
-    location.href = '/';
-  });
-  document.getElementById('graveyard').addEventListener('click', () => {
-    ctx.showGraveyard = true;
-    rerender();
-  });
+  const app = el('main', 'brm-app');
+  const topbarSlot = el('div');
+  const viewSlot = el('div', 'brm-view');
+  const pulse = new ChatPulse();
+  app.append(topbarSlot, viewSlot, pulse.root);
+  root.appendChild(app);
 
   // ── WebSocket ───────────────────────────────────────────────────────────
   const useDemo = isDemoBuild();
@@ -86,7 +74,6 @@ export async function startPanel(root) {
   const client = factory(wsUrl, (msg) => {
     handleServerMessage(msg);
     state.connected = true;
-    updateConnPill();
     rerender();
   });
   if (!useDemo) client.send(C2S.HELLO_PANEL, { channelId: me.channelId });
@@ -98,6 +85,13 @@ export async function startPanel(root) {
       case S2C.PHASE_CHANGE:
         Object.assign(state, msg.payload);
         if (msg.payload.legacyPoints != null) ctx.legacyPoints = msg.payload.legacyPoints;
+        // Push parsed chat events into ChatPulse if present.
+        for (const ev of msg.payload.events || []) {
+          if (ev.kind === 'CHATTER_JOINED') pulse.push({ login: ev.chatterId, action: 'join' });
+          else if (ev.kind === 'CHATTER_ATTACK') pulse.push({ login: ev.chatterId, action: 'attack' });
+          else if (ev.kind === 'CHATTER_HEAL') pulse.push({ login: ev.chatterId, action: 'heal' });
+          else if (ev.kind === 'CHATTER_BLOCK') pulse.push({ login: ev.chatterId, action: 'block' });
+        }
         return;
       case S2C.MONSTER_UPDATED:
         state.monster = msg.payload.monster;
@@ -121,52 +115,75 @@ export async function startPanel(root) {
     const send = (t, p) => client.send(t, p);
     ctx.send = send;
     ctx.rerender = rerender;
+    ctx.lastResults = lastResults;
+
+    // Top bar
+    topbarSlot.innerHTML = '';
+    topbarSlot.appendChild(renderTopBar({
+      phase: state.phase,
+      me,
+      connected: state.connected,
+      onGraveyard: () => { ctx.showGraveyard = true; rerender(); },
+      onLogout: async () => { await fetch('/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/'; },
+    }));
+
+    // Mini OBS prompt floating in the topbar zone — non-blocking.
+    if (!ctx.obsAcknowledged && state.monster?.status === 'active') {
+      mountObsBanner(topbarSlot, ctx);
+    }
+
+    // Body view
     if (ctx.showGraveyard) {
-      renderGraveyard(view, ctx);
+      renderGraveyard(viewSlot, ctx);
+      return;
+    }
+    if (ctx.showObs) {
+      renderObsHandoff(viewSlot, ctx);
       return;
     }
     switch (state.phase) {
-      case PHASE.LOBBY:
       case PHASE.IDLE:
-        renderLobby(view, { state, send, i18n });
+      case PHASE.LOBBY:
+        renderIdleOrLobby(viewSlot, ctx);
         break;
       case PHASE.FIGHT:
-        renderFight(view, { state, send, i18n });
+        renderFight(viewSlot, ctx);
         break;
       case PHASE.RESULTS:
-        renderResults(view, { state, lastResults });
-        break;
-      case PHASE.CREATION:
-        renderCreator(view, ctx);
+        renderResults(viewSlot, ctx);
         break;
       case PHASE.LEVEL_UP:
-        renderLevelUp(view, ctx);
+        renderLevelUp(viewSlot, ctx);
         break;
       case PHASE.DEATH:
-        renderDeath(view, ctx);
+        renderDeath(viewSlot, ctx);
+        break;
+      case PHASE.CREATION:
+        renderOnboardingPick(viewSlot, ctx);
         break;
       default:
-        view.innerHTML = `<div class="card"><h2>State: ${state.phase}</h2></div>`;
+        viewSlot.innerHTML = `<div class="dash-single"><h2>State: ${state.phase}</h2></div>`;
     }
+    void i18n;
   }
 
-  function updateConnPill() {
-    const pill = document.getElementById('conn');
-    if (!pill) return;
-    pill.textContent = state.connected ? 'live' : 'reconnecting…';
-    pill.classList.toggle('bad', !state.connected);
-  }
-
-  // First paint
   rerender();
 }
 
+function mountObsBanner(slot, ctx) {
+  const bar = el('div');
+  bar.style.cssText = 'background:#fff7c2;border-bottom:2.4px solid var(--ink);padding:8px 18px;display:flex;align-items:center;gap:14px;font-family:var(--font-marker);font-size:14px;';
+  bar.innerHTML = `
+    <span>📺 First time? Add the overlay to OBS.</span>
+    <button class="btn tiny" data-act="show-obs">Show me how</button>
+    <button class="btn tiny ghost" data-act="dismiss">later</button>
+  `;
+  bar.querySelector('[data-act="show-obs"]').addEventListener('click', () => { ctx.showObs = true; ctx.rerender(); });
+  bar.querySelector('[data-act="dismiss"]').addEventListener('click', () => { ctx.obsAcknowledged = true; ctx.rerender(); });
+  slot.appendChild(bar);
+}
 
 function computeWsUrl() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${location.host}/ws`;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

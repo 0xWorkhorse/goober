@@ -1,89 +1,273 @@
-import { C2S, PHASE, STAT_DEFS, deriveStats, effectiveBossMaxHP } from '@bossraid/shared';
+import {
+  C2S, PALETTES, PART_SLOTS, PART_SLOT_NAMES, PHASE,
+  STAT_DEFS, STAT_NAMES, deriveStats,
+} from '@bossraid/shared';
+
+import { el, escapeHtml } from './chrome.js';
+import { buildDashboard, monsterStage, topBanner } from './dashboard.js';
 
 /**
- * Pre-fight idle view. Shows the active monster's stats and an "Open lobby"
- * button. Used for both the IDLE phase (before opening the lobby) and the
- * LOBBY phase (countdown to fight).
+ * IDLE phase — streamer has an active monster and is between fights. The
+ * dashboard shows current abilities + stats on the left, the monster centered
+ * with inline slot-edit dots, and an "open lobby" CTA on the right.
+ *
+ * LOBBY phase — same shell, but left column shows joiners + minimum CTA,
+ * right column shows the lobby countdown + extend/start-now controls.
  */
-export function renderLobby(root, { state, send }) {
+export function renderIdleOrLobby(root, ctx) {
   root.innerHTML = '';
-  const m = state.monster;
-  if (!m) {
-    root.innerHTML = '<div class="card"><h2>No active monster.</h2><p>Create one to begin.</p></div>';
+  const m = ctx.state.monster;
+  if (!m || m.status !== 'active') {
+    // No monster yet — show an empty card with a "create one" prompt.
+    const card = el('div');
+    card.className = 'dash-single';
+    card.innerHTML = `
+      <h1 class="banner big">No monster yet.</h1>
+      <p style="font-family:var(--font-marker);font-size:16px">Pick one to start fighting.</p>
+    `;
+    const btn = el('button', 'btn primary giant');
+    btn.textContent = 'Pick a monster →';
+    btn.addEventListener('click', () => ctx.send(C2S.START_NEW_MONSTER, {}));
+    card.appendChild(btn);
+    root.appendChild(card);
     return;
   }
 
-  const wrap = document.createElement('div');
-  wrap.className = 'col';
+  const isLobby = ctx.state.phase === PHASE.LOBBY;
+  const stats = deriveStats(m.statPointsSpent || {});
 
-  const monsterCard = document.createElement('div');
-  monsterCard.className = 'card';
-  const stats = deriveStats(m.statPointsSpent);
-  const maxHp = effectiveBossMaxHP(stats, 30);
-  monsterCard.innerHTML = `
-    <div class="row between">
-      <div>
-        <h2>${escapeHtml(m.name)} — Lv ${m.level}</h2>
-        <div class="stat-name">Wins: ${m.wins} · Reroll tokens: ${m.rerollTokens} · Times revived: ${m.timesRevived}</div>
-      </div>
-      <span class="phase-chip">${state.phase}</span>
-    </div>
-    <div class="stat-grid" style="margin-top:14px">
-      ${renderStat('HP', `${maxHp}`, `(${stats.hp} base @ 30 chatters)`)}
-      ${renderStat(STAT_DEFS.attack.label, stats.attack, 'per hit')}
-      ${renderStat(STAT_DEFS.defense.label, `${stats.defense}%`, 'damage taken −')}
-      ${renderStat(STAT_DEFS.speed.label, stats.speed, 'attack rate')}
-      ${renderStat(STAT_DEFS.crit.label, `${stats.crit}%`, '2× on crit')}
-      ${renderStat(STAT_DEFS.abilityPower.label, `${stats.abilityPower}%`, 'ability scale')}
-    </div>
-    <div style="margin-top:14px">
-      <h2 style="font-size:14px">Abilities</h2>
-      <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:6px">
-        ${(m.abilityIds || []).map((id) => `<span class="phase-chip">${id.replace('_', ' ')}</span>`).join('')}
-      </div>
-    </div>
-  `;
-  wrap.appendChild(monsterCard);
+  const left = isLobby ? buildLobbyJoiners(ctx) : buildIdleStats(m, stats);
+  const right = isLobby ? buildLobbyControls(ctx) : buildIdleControls(ctx);
 
-  const ctl = document.createElement('div');
-  ctl.className = 'card row between';
-  const left = document.createElement('div');
-  if (state.phase === PHASE.LOBBY) {
-    left.innerHTML = `<b>Lobby open.</b> Chat can <code>!join</code>. Time left: <b>${formatTime(state.timeLeftMs)}</b>`;
+  const { stage } = monsterStage(m.appearance, { level: m.level || 1 });
+  const overlays = el('div');
+  overlays.appendChild(topBanner(`${m.name || 'monster'} · Lv ${m.level || 1} · ${m.wins || 0} wins`));
+
+  if (!isLobby) {
+    // Inline slot-edit dots and popover (open via slot click)
+    overlays.appendChild(buildSlotDots(ctx, m));
+    if (ctx.editingSlot) overlays.appendChild(buildSlotPopover(ctx, m));
+    // Sticky note hint
+    const note = el('div', 'sticky');
+    note.style.cssText = 'position:absolute;bottom:24px;right:24px;';
+    note.innerHTML = 'click any dot to<br>swap that part';
+    overlays.appendChild(note);
   } else {
-    left.innerHTML = '<span class="stat-name">Open the lobby when you and chat are ready.</span>';
-  }
-  const right = document.createElement('button');
-  right.className = 'primary';
-  right.textContent = state.phase === PHASE.LOBBY ? 'Lobby is open…' : 'Open lobby';
-  right.disabled = state.phase === PHASE.LOBBY;
-  right.addEventListener('click', () => send(C2S.START_LOBBY, {}));
-  ctl.append(left, right);
-  wrap.appendChild(ctl);
-
-  if (state.phase === PHASE.LOBBY) {
-    const roster = document.createElement('div');
-    roster.className = 'card';
-    roster.innerHTML = `<h2>${state.chatters?.length || 0} chatter${state.chatters?.length === 1 ? '' : 's'} ready</h2>`;
-    wrap.appendChild(roster);
+    // Lobby: show the lurker nudge near the monster
+    const nudge = el('div', 'chat-nudge');
+    nudge.style.cssText = 'position:absolute;bottom:24px;left:24px;';
+    nudge.innerHTML = `chat: type <code>!join</code> in the next ${Math.ceil((ctx.state.timeLeftMs || 0) / 1000)}s`;
+    overlays.appendChild(nudge);
   }
 
-  root.appendChild(wrap);
+  root.appendChild(buildDashboard({ left, center: { stage, overlays }, right }));
 }
 
-function renderStat(name, value, hint) {
-  return `
-    <div class="stat-item">
-      <span class="stat-name">${name}<br><span style="font-size:11px;opacity:0.7">${hint}</span></span>
-      <span class="stat-value">${value}</span>
-    </div>
+function buildIdleStats(m, stats) {
+  const wrap = el('div');
+  const head = el('h4');
+  head.textContent = 'Abilities';
+  wrap.appendChild(head);
+  for (const id of (m.abilityIds || [])) {
+    const row = el('div', 'stat-block');
+    row.innerHTML = `<span style="text-transform:capitalize">${id.replace('_', ' ')}</span><span class="val">⚔</span>`;
+    wrap.appendChild(row);
+  }
+  const statsHead = el('h4');
+  statsHead.style.marginTop = '10px';
+  statsHead.textContent = 'Stats';
+  wrap.appendChild(statsHead);
+  for (const k of STAT_NAMES) {
+    const row = el('div', 'stat-block');
+    row.innerHTML = `<span>${shortStat(k)}</span><span class="val">${stats[k]}</span>`;
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
+function shortStat(k) {
+  return ({ hp: 'HP', attack: 'ATK', defense: 'DEF', speed: 'SPD', crit: 'CRT', abilityPower: 'AP' }[k] || k.toUpperCase());
+}
+
+function buildIdleControls(ctx) {
+  const wrap = el('div');
+  wrap.innerHTML = `
+    <h4>Lobby setup</h4>
+    <div class="stat-block"><span>Lobby length</span><span class="val">30s</span></div>
+    <div class="stat-block"><span>Fight length</span><span class="val">2:00</span></div>
+    <div class="stat-block"><span>Min joiners</span><span class="val">5</span></div>
   `;
+  const open = el('button', 'btn primary giant');
+  open.style.cssText = 'margin-top:auto;align-self:stretch;';
+  open.textContent = '⚔ Open lobby';
+  open.addEventListener('click', () => ctx.send(C2S.START_LOBBY, {}));
+  wrap.appendChild(open);
+  const small = el('p');
+  small.style.cssText = 'font-family:var(--font-marker);font-size:13px;color:var(--ink-2);text-align:center;margin:6px 0 0;';
+  small.textContent = 'chat will see the join banner instantly';
+  wrap.appendChild(small);
+  // Secondary actions
+  const actions = el('div');
+  actions.style.cssText = 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;';
+  const fresh = el('button', 'btn ghost tiny');
+  fresh.textContent = '↻ pick a new monster';
+  fresh.addEventListener('click', () => ctx.send(C2S.START_NEW_MONSTER, {}));
+  actions.append(fresh);
+  wrap.appendChild(actions);
+  return wrap;
 }
+
+function buildLobbyJoiners(ctx) {
+  const wrap = el('div');
+  const count = ctx.state.chatters?.length || 0;
+  wrap.innerHTML = `<h4>Joiners <span style="color:var(--accent)">· ${count}</span></h4>`;
+  const list = el('div');
+  list.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;overflow:auto;max-height:380px;';
+  for (const c of (ctx.state.chatters || []).slice(0, 28)) {
+    const chip = el('span', 'pulse-msg');
+    chip.style.cssText = 'padding:2px 10px;font-size:13px;';
+    chip.innerHTML = `<span class="who">${escapeHtml(c.login)}</span>`;
+    list.appendChild(chip);
+  }
+  if (count > 28) {
+    const more = el('span', 'pulse-msg');
+    more.style.cssText = 'padding:2px 10px;font-size:13px;background:var(--paper-2);';
+    more.textContent = `+ ${count - 28} more`;
+    list.appendChild(more);
+  }
+  wrap.appendChild(list);
+  return wrap;
+}
+
+function buildLobbyControls(ctx) {
+  const wrap = el('div');
+  const time = formatTime(ctx.state.timeLeftMs || 0);
+  wrap.innerHTML = `
+    <h4>Time left</h4>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div>
+        <div class="timer-label">LOBBY CLOSES IN</div>
+        <div class="timer">${time}</div>
+      </div>
+    </div>
+    <h4 style="margin-top:14px">Quick actions</h4>
+  `;
+  const startNow = el('button', 'btn');
+  startNow.textContent = '⚔ start now';
+  startNow.addEventListener('click', () => { /* no-op in demo / handled by server in prod */ });
+  const cancel = el('button', 'btn ghost');
+  cancel.textContent = 'cancel';
+  cancel.addEventListener('click', () => ctx.send(C2S.END_FIGHT_FORCE, {}));
+  wrap.append(startNow, cancel);
+
+  const bonusHead = el('h4');
+  bonusHead.style.marginTop = '14px';
+  bonusHead.textContent = 'Bonuses unlocked';
+  wrap.appendChild(bonusHead);
+  const count = ctx.state.chatters?.length || 0;
+  for (const [thr, label] of [[5, 'fight enabled'], [10, '+10% loot'], [25, 'rare drop'], [100, 'legendary']]) {
+    const r = el('div', 'stat-block' + (count >= thr ? '' : ' muted'));
+    r.innerHTML = `<span>${thr}+ joiners</span><span class="val">${count >= thr ? '✓ ' + label : '— ' + label}</span>`;
+    wrap.appendChild(r);
+  }
+  return wrap;
+}
+
 function formatTime(ms) {
   if (!ms || ms < 0) return '0:00';
   const s = Math.ceil(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ─── Slot-edit dots + popover ──────────────────────────────────────────────
+const SLOT_POSITIONS = {
+  horns: { top: '4%', left: '50%', transform: 'translateX(-50%)' },
+  eyes: { top: '32%', left: '50%', transform: 'translateX(-50%)' },
+  mouth: { top: '52%', left: '50%', transform: 'translateX(-50%)' },
+  arms: { top: '50%', left: '4%' },
+  feet: { bottom: '4%', left: '50%', transform: 'translateX(-50%)' },
+  body: { top: '50%', right: '4%' },
+};
+
+function buildSlotDots(ctx, _monster) {
+  const layer = el('div');
+  layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+  // Center the dots on the inner sprite's bounding region.
+  const inner = el('div');
+  inner.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);width:min(72%, 460px);aspect-ratio:0.78;pointer-events:none;';
+  for (const slot of PART_SLOT_NAMES) {
+    const dot = el('div', 'slot-dot' + (ctx.editingSlot === slot ? ' active' : ''));
+    dot.dataset.slot = slot;
+    dot.title = slot;
+    dot.textContent = '+';
+    dot.style.pointerEvents = 'auto';
+    Object.assign(dot.style, SLOT_POSITIONS[slot] || { top: '50%', left: '50%' });
+    dot.addEventListener('click', () => {
+      ctx.editingSlot = ctx.editingSlot === slot ? null : slot;
+      ctx.rerender();
+    });
+    inner.appendChild(dot);
+  }
+  layer.appendChild(inner);
+  return layer;
 }
+
+function buildSlotPopover(ctx, monster) {
+  const slot = ctx.editingSlot;
+  const choices = PART_SLOTS[slot] || [];
+  const pop = el('div', 'slot-popover');
+  pop.style.cssText = 'top:50%;left:60%;transform:translate(-10%, -50%);';
+  const close = el('button', 'btn tiny ghost');
+  close.style.cssText = 'position:absolute;top:6px;right:8px;';
+  close.textContent = '✕';
+  close.addEventListener('click', () => { ctx.editingSlot = null; ctx.rerender(); });
+
+  if (slot === 'body') {
+    // Body slot: edit body shape *and* palette (since palette tints accents).
+    const t = el('div', 'title');
+    t.textContent = 'BODY SHAPE';
+    pop.append(close, t);
+    const opts = el('div', 'opts');
+    for (const c of choices) {
+      const b = el('button', 'opt' + (monster.appearance?.body === c ? ' on' : ''));
+      b.textContent = c;
+      b.addEventListener('click', () => {
+        ctx.send(C2S.PICK_APPEARANCE, { appearance: { ...monster.appearance, body: c } });
+      });
+      opts.appendChild(b);
+    }
+    pop.appendChild(opts);
+    const palT = el('div', 'title');
+    palT.style.marginTop = '6px';
+    palT.textContent = 'ACCENT PALETTE';
+    pop.appendChild(palT);
+    const pal = el('div', 'palette');
+    PALETTES.forEach((p, idx) => {
+      const b = el('button', monster.appearance?.paletteIdx === idx ? 'on' : '');
+      b.style.background = `linear-gradient(90deg, ${p.primary} 50%, ${p.accent} 50%)`;
+      b.addEventListener('click', () => {
+        ctx.send(C2S.PICK_APPEARANCE, { appearance: { ...monster.appearance, paletteIdx: idx } });
+      });
+      pal.appendChild(b);
+    });
+    pop.appendChild(pal);
+  } else {
+    const t = el('div', 'title');
+    t.textContent = slot.toUpperCase();
+    pop.append(close, t);
+    const opts = el('div', 'opts');
+    for (const c of choices) {
+      const b = el('button', 'opt' + (monster.appearance?.[slot] === c ? ' on' : ''));
+      b.textContent = c;
+      b.addEventListener('click', () => {
+        ctx.send(C2S.PICK_APPEARANCE, { appearance: { ...monster.appearance, [slot]: c } });
+      });
+      opts.appendChild(b);
+    }
+    pop.appendChild(opts);
+  }
+  return pop;
+}
+
+// Backwards-compat — app.js imports renderLobby
+export const renderLobby = renderIdleOrLobby;

@@ -1,53 +1,55 @@
 import { C2S, reviveCost } from '@bossraid/shared';
-import { renderMonsterSVG } from '@bossraid/shared/monster';
 
-/** Death screen: revive (legacy points) or abandon (start fresh). */
+import { el, escapeHtml } from './chrome.js';
+import { buildDashboard, monsterStage } from './dashboard.js';
+
+/** DEATH phase view — revive (legacy points) or abandon (start fresh). */
 export function renderDeath(root, ctx) {
   root.innerHTML = '';
   const m = ctx.state.monster;
-  const channel = ctx.me;
   const cost = m ? reviveCost(m.timesRevived || 0) : 0;
-  const legacy = ctx.legacyPoints ?? 0; // populated by /api/me below; fallback 0
+  const legacy = ctx.legacyPoints ?? 0;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'col';
+  const left = (() => {
+    const w = el('div');
+    w.innerHTML = `
+      <h4>Run summary</h4>
+      <div class="stat-block"><span>peak level</span><span class="val">${m?.peakLevel || m?.level || 1}</span></div>
+      <div class="stat-block"><span>total wins</span><span class="val">${m?.wins || 0}</span></div>
+      <div class="stat-block"><span>times revived</span><span class="val">${m?.timesRevived || 0}</span></div>
+      <div class="stat-block"><span>legacy balance</span><span class="val">${legacy}</span></div>
+    `;
+    return w;
+  })();
 
-  const head = document.createElement('div');
-  head.className = 'card';
-  head.innerHTML = `
-    <h1 class="banner defeat">${escapeHtml(m?.name) || 'Your monster'} has fallen.</h1>
-    ${m ? `<p>Reached level <b>${m.level}</b> · won <b>${m.wins}</b> fights · revived <b>${m.timesRevived || 0}</b> time(s).</p>` : ''}
-    <div class="row" style="gap:14px;align-items:center">
-      ${m ? `<div style="width:140px">${renderMonsterSVG(m.appearance, { idle: false })}</div>` : ''}
-      <p>Choose: come back at half HP for <b>${cost}</b> legacy point(s), or start a fresh monster.</p>
-    </div>
-    <p class="stat-name">You have <b>${legacy}</b> legacy point(s).</p>
-  `;
-  wrap.appendChild(head);
+  const right = (() => {
+    const w = el('div');
+    w.innerHTML = `<h4>Choose your fate</h4>`;
+    const note = el('p');
+    note.style.cssText = 'font-family:var(--font-marker);font-size:13px;color:var(--ink-2);margin:0;';
+    note.textContent = `Revive comes back at half max HP. Costs ${cost} legacy point${cost === 1 ? '' : 's'}.`;
+    w.appendChild(note);
 
-  const ctl = document.createElement('div');
-  ctl.className = 'card row';
-  ctl.style.gap = '10px';
-  const revive = document.createElement('button');
-  revive.className = 'primary';
-  revive.textContent = `Revive (${cost} legacy)`;
-  revive.disabled = legacy < cost;
-  revive.addEventListener('click', () => ctx.send(C2S.REVIVE_MONSTER, {}));
+    const revive = el('button', 'btn primary giant');
+    revive.style.cssText = 'align-self:stretch;margin-top:8px;';
+    revive.textContent = `Revive (${cost})`;
+    revive.disabled = legacy < cost;
+    revive.addEventListener('click', () => ctx.send(C2S.REVIVE_MONSTER, {}));
+    w.appendChild(revive);
 
-  const abandon = document.createElement('button');
-  abandon.className = 'danger';
-  abandon.textContent = 'Start a new monster';
-  abandon.addEventListener('click', () => ctx.send(C2S.ABANDON_MONSTER, {}));
+    const fresh = el('button', 'btn danger');
+    fresh.textContent = '✗ start a new monster';
+    fresh.addEventListener('click', () => ctx.send(C2S.ABANDON_MONSTER, {}));
+    w.appendChild(fresh);
+    return w;
+  })();
 
-  // Suppress unused-var warning for `channel`
-  void channel;
+  const { stage } = monsterStage(m?.appearance, { level: m?.level || 1, idle: false });
+  const overlays = el('div');
+  const banner = el('div');
+  banner.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%, -90%);text-align:center;';
+  banner.innerHTML = `<h1 class="banner big defeat">${escapeHtml(m?.name) || 'Your monster'} has fallen.</h1>`;
+  overlays.appendChild(banner);
 
-  ctl.append(revive, abandon);
-  wrap.appendChild(ctl);
-
-  root.appendChild(wrap);
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  root.appendChild(buildDashboard({ left, center: { stage, overlays }, right }));
 }
