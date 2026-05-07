@@ -1,21 +1,28 @@
-/* Overlay styles. Background is transparent — OBS composites over the stream.
-   Strong outlines on every glyph so visuals read on any backdrop. */
+/* Hand-drawn ink overlay. Background is transparent — OBS composites
+   the overlay over the streamer's video. Every glyph reads on any background
+   thanks to strong ink outlines + drop shadows. */
 
 :root {
-  --bg: transparent;
-  --hp-bar-bg: rgba(0, 0, 0, 0.55);
-  --hp-bar-fill: linear-gradient(90deg, #ef476f 0%, #ff6b9d 100%);
-  --hp-bar-stroke: #1a1a2e;
-  --text: #ffffff;
-  --text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 0 2px #000;
+  --ink: #1a1614;
+  --ink-2: #3a342f;
+  --paper: #fdfaf3;
+  --hp: #c63d2f;
+  --accent: #d56a3e;
+  --accent-2: #2d8a55;
+  --shadow-stamp: 0 4px 0 var(--ink);
+  --font-hand: 'Caveat', cursive;
+  --font-marker: 'Kalam', cursive;
+  --font-body: 'Patrick Hand', system-ui, sans-serif;
+  --text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85), 0 0 2px #000;
 }
+
+* { box-sizing: border-box; }
 
 html, body {
   margin: 0;
-  padding: 0;
-  background: var(--bg);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--text);
+  background: transparent;
+  font-family: var(--font-body);
+  color: var(--paper);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   user-select: none;
@@ -27,29 +34,36 @@ html, body {
   pointer-events: none;
 }
 
-/* Boss container: large monster centered in the upper-middle of the stage. */
+.shake-wrap {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Boss container: large monster centered. */
 .boss {
   position: absolute;
   left: 50%;
-  top: 38%;
+  top: 42%;
   transform: translate(-50%, -50%);
-  width: 360px;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.55));
+  width: 420px;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.6));
 }
 .boss svg { width: 100%; height: auto; display: block; }
 
-/* HP bar centered above the boss. */
+/* HP bar — paper card style with ink outline. */
 .hp-bar {
   position: absolute;
   left: 50%;
-  top: 8%;
+  top: 6%;
   transform: translateX(-50%);
-  width: 520px;
-  background: var(--hp-bar-bg);
-  border: 2px solid var(--hp-bar-stroke);
+  width: 560px;
+  background: var(--paper);
+  border: 2.4px solid var(--ink);
   border-radius: 12px;
-  padding: 8px 14px;
-  text-shadow: var(--text-shadow);
+  padding: 10px 16px;
+  box-shadow: var(--shadow-stamp);
+  font-family: var(--font-marker);
 }
 .hp-bar-label {
   display: flex;
@@ -58,36 +72,39 @@ html, body {
   font-weight: 700;
   font-size: 16px;
   margin-bottom: 6px;
+  color: var(--ink);
 }
-.hp-bar-name { font-size: 18px; }
-.hp-bar-level { color: #ffd166; font-size: 14px; }
-.hp-bar-numbers { font-variant-numeric: tabular-nums; opacity: 0.85; }
+.hp-bar-name { font-family: var(--font-hand); font-size: 24px; line-height: 1; }
+.hp-bar-level { color: var(--accent); font-size: 14px; }
+.hp-bar-numbers { font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .hp-bar-track {
-  height: 18px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 8px;
+  height: 22px;
+  background: var(--paper);
+  border-radius: 999px;
   overflow: hidden;
-  border: 1px solid #1a1a2e;
+  border: 2px solid var(--ink);
+  box-shadow: 0 2px 0 var(--ink);
 }
 .hp-bar-fill {
   height: 100%;
   width: 100%;
-  background: var(--hp-bar-fill);
+  background: linear-gradient(90deg, var(--hp), #e87a4f);
   transition: width 250ms ease-out;
+  border-right: 2px solid var(--ink);
 }
 
-/* Chatter roster strip across the bottom of the stage. */
+/* Chatter sprites at the bottom of the stage. */
 .chatter-strip {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 4%;
+  bottom: 6%;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   justify-content: center;
   padding: 0 24px;
-  max-height: 40vh;
+  max-height: 36vh;
   align-content: flex-start;
   overflow: hidden;
 }
@@ -96,15 +113,17 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.55));
   transition: transform 200ms ease-out, opacity 200ms ease-out;
 }
 .chatter-sprite.chatter-down { transform: translateY(8px) rotate(-8deg); }
 .chatter-svg { width: 56px; height: 70px; }
 .chatter-svg svg { width: 100%; height: 100%; display: block; }
 .chatter-name {
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--font-marker);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--paper);
   text-shadow: var(--text-shadow);
   max-width: 64px;
   overflow: hidden;
@@ -113,41 +132,74 @@ html, body {
   margin-bottom: 2px;
 }
 
-/* Idle breathing animation on the monster. */
+/* Mob sprite (high-count tier). */
+.mob-sprite { width: 80px; }
+.mob-sprite .chatter-svg { width: 70px; height: 70px; }
+
+/* Phase banner — appears for lobby/results announcements. */
+.phase-banner {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%) rotate(-0.6deg);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 12px 26px;
+  font-family: var(--font-marker);
+  font-weight: 700;
+  font-size: 22px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.45);
+  border-radius: 6px;
+}
+.phase-banner.victory { background: var(--accent-2); }
+.phase-banner.defeat { background: var(--hp); }
+
+/* Lurker CTA ribbon at the bottom — invitation for new chatters. */
+.lurker-ribbon {
+  position: absolute;
+  left: 50%; bottom: 4%;
+  transform: translateX(-50%) rotate(-0.6deg);
+  background: rgba(26,22,20,0.92);
+  color: var(--paper);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-family: var(--font-marker);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.5);
+  border: 2px solid var(--paper);
+  display: inline-flex; gap: 10px; align-items: center;
+}
+.lurker-ribbon .cmd-sample {
+  background: var(--accent); color: var(--ink);
+  padding: 2px 10px; border-radius: 4px; font-size: 13px;
+}
+
+/* Connection-state pill (top-right). */
+.conn-pill {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: var(--font-marker);
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 0 2px 0 var(--ink);
+}
+.conn-pill.conn-bad { background: var(--hp); color: var(--paper); }
+
+/* Idle breathing animation — applied via `brm-idle` from the renderer. */
 .brm-monster.brm-idle {
-  transform-origin: 100px 200px;
+  transform-origin: 110px 200px;
   animation: brm-breathe 2.6s ease-in-out infinite;
 }
 @keyframes brm-breathe {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.015) translateY(-1px); }
 }
-
-/* Phase banner (e.g. "Lobby — type !join") */
-.phase-banner {
-  position: absolute;
-  left: 50%;
-  top: 18%;
-  transform: translateX(-50%);
-  font-size: 22px;
-  font-weight: 700;
-  text-shadow: var(--text-shadow);
-  background: rgba(0, 0, 0, 0.45);
-  border: 2px solid #1a1a2e;
-  border-radius: 10px;
-  padding: 8px 18px;
-  text-align: center;
-}
-
-/* Connection-state pill (top-right, dev only). */
-.conn-pill {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  font-size: 11px;
-  padding: 3px 8px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 8px;
-  text-shadow: var(--text-shadow);
-}
-.conn-pill.conn-bad { background: rgba(180, 30, 30, 0.7); }

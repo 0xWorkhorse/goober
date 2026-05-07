@@ -39,6 +39,8 @@ export function startOverlay({ stage, channelId }) {
   const phaseBanner = make('div', 'phase-banner');
   phaseBanner.style.display = 'none';
   const chatterStrip = make('div', 'chatter-strip');
+  const lurkerRibbon = make('div', 'lurker-ribbon');
+  lurkerRibbon.style.display = 'none';
   const connPill = make('div', 'conn-pill');
   connPill.textContent = 'connecting…';
 
@@ -49,7 +51,7 @@ export function startOverlay({ stage, channelId }) {
   dmgCanvas.className = 'dmg-canvas';
   dmgCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
 
-  shakeWrap.append(bossEl, phaseBanner, chatterStrip, fxCanvas, dmgCanvas);
+  shakeWrap.append(bossEl, phaseBanner, chatterStrip, lurkerRibbon, fxCanvas, dmgCanvas);
   stage.append(shakeWrap, connPill);
 
   // ── Subsystems ──────────────────────────────────────────────────────────
@@ -164,18 +166,29 @@ export function startOverlay({ stage, channelId }) {
     }
 
     // Phase banner
+    phaseBanner.classList.remove('victory', 'defeat');
     if (state.phase === PHASE.LOBBY) {
       phaseBanner.style.display = '';
       const seconds = Math.max(0, Math.ceil((state.timeLeftMs || 0) / 1000));
       phaseBanner.textContent = i18n.t('lobby.countdown', { seconds });
     } else if (state.phase === PHASE.RESULTS) {
       phaseBanner.style.display = '';
+      phaseBanner.classList.add(state.victory ? 'victory' : 'defeat');
       phaseBanner.textContent = i18n.t(state.victory ? 'fight.victory' : 'fight.defeat');
     } else if (state.phase === PHASE.IDLE || state.phase === PHASE.CREATION) {
       phaseBanner.style.display = '';
       phaseBanner.textContent = i18n.t('lobby.joining');
     } else {
       phaseBanner.style.display = 'none';
+    }
+
+    // Lurker CTA — only during fight phase, encourages new chatters in.
+    if (state.phase === PHASE.FIGHT) {
+      lurkerRibbon.style.display = '';
+      const count = state.chatters?.length || 0;
+      lurkerRibbon.innerHTML = `type <span class="cmd-sample">!attack</span> to join · ${count} fighting`;
+    } else {
+      lurkerRibbon.style.display = 'none';
     }
 
     // Tier-aware rendering: pick which chatters are individual vs mob-grouped.
