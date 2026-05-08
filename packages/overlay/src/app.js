@@ -10,6 +10,7 @@ import { DEFAULT_APPEARANCE, renderMonsterSVG } from '@bossraid/shared/monster';
 import { buildRenderPlan, createSpotlightTracker, syncMobSprites } from './render/mobs.js';
 import { createParticleSystem } from './render/particles.js';
 import { createShake } from './render/shake.js';
+import { highlightTelegraphTargets, renderTelegraph } from './render/telegraph.js';
 import { buildVfxHandlers } from './render/vfx.js';
 import { createFakeOverlayClient, isDemoBuild } from './ws/fakeWs.js';
 import { createWsClient } from './ws/client.js';
@@ -51,7 +52,9 @@ export function startOverlay({ stage, channelId }) {
   dmgCanvas.className = 'dmg-canvas';
   dmgCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
 
-  shakeWrap.append(bossEl, phaseBanner, chatterStrip, lurkerRibbon, fxCanvas, dmgCanvas);
+  const telegraphLayer = make('div', 'telegraph-layer');
+  telegraphLayer.style.display = 'none';
+  shakeWrap.append(bossEl, phaseBanner, chatterStrip, lurkerRibbon, telegraphLayer, fxCanvas, dmgCanvas);
   stage.append(shakeWrap, connPill);
 
   // ── Subsystems ──────────────────────────────────────────────────────────
@@ -203,6 +206,10 @@ export function startOverlay({ stage, channelId }) {
     const plan = buildRenderPlan(state.chatters || [], spotlights.map);
     syncChatterSprites(chatterStrip, plan.individuals, Date.now());
     syncMobSprites(chatterStrip, plan.mobs);
+
+    // Boss telegraph banner — only visible during a wind-up.
+    renderTelegraph(telegraphLayer, state.telegraph);
+    highlightTelegraphTargets(chatterStrip, state.telegraph?.targets || []);
   }
 
   function updateConnPill() {

@@ -4,3 +4,4 @@ export * from './derivedStats.js';
 export { createI18n } from './i18n.js';
 export { createCommandParser } from './commands.js';
 export { BESTIARY, PRESET_KEYS, getPreset, renderPresetSVG } from './bestiary.js';
+export { BOSS_PHASES, bossPhaseFor, SIGNATURES, GENERIC_SIGNATURE, getSignature } from './bossSignatures.js';

@@ -13,6 +13,7 @@
     "./derivedStats": "./src/derivedStats.js",
     "./monster": "./src/monster.js",
     "./bestiary": "./src/bestiary.js",
+    "./bossSignatures": "./src/bossSignatures.js",
     "./animations.css": "./src/animations.css",
     "./locales/*": "./src/locales/*"
   }

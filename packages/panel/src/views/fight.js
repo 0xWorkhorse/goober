@@ -67,11 +67,28 @@ function buildFightOverlays(ctx) {
   const hpHead = el('div');
   hpHead.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;';
   const m = ctx.state.monster;
+  const phaseId = ctx.state.bossPhaseId || 'p1';
+  const phaseLabel = phaseId === 'p3' ? 'desperation' : phaseId === 'p2' ? 'enraged' : 'opening';
   hpHead.innerHTML = `
     <span style="font-family:var(--font-hand);font-size:24px">${escapeHtml(m?.name || '')}</span>
+    <span class="lvl-badge boss-phase boss-phase-${phaseId}">${phaseLabel}</span>
     <span class="lvl-badge">Lv ${m?.level || 1} · ${m?.wins || 0} wins</span>
   `;
   hpWrap.appendChild(hpHead);
+
+  // Telegraph alert — mirrors the overlay's banner so the streamer also knows
+  // a wind-up is in progress and can cast a counter-ability if it helps.
+  if (ctx.state.telegraph) {
+    const tg = ctx.state.telegraph;
+    const alert = el('div', 'tg-alert');
+    const sec = Math.max(0, tg.remainingMs / 1000).toFixed(1);
+    alert.innerHTML = `
+      <span class="tg-name">${escapeHtml(tg.sigName)}</span>
+      <span class="tg-secs">${sec}s</span>
+      <span class="tg-hint">chat → !${escapeHtml(tg.counter || 'block')}</span>
+    `;
+    hpWrap.appendChild(alert);
+  }
   const bar = el('div', 'hpbar');
   const pct = ctx.state.maxBossHP > 0 ? (ctx.state.bossHP / ctx.state.maxBossHP) * 100 : 0;
   const fill = el('div', 'fill'); fill.style.width = pct + '%';

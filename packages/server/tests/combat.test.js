@@ -10,7 +10,7 @@ import {
 // the public combat functions directly, and asserting on state mutations.
 // Tick + broadcast loops are not started — we drive transitions manually.
 
-import { handleChatCommand, openLobby, castAbility, ensureCombat, forceEndFight } from '../src/game/combat.js';
+import { handleChatCommand, openLobby, castAbility, ensureCombat, forceEndFight, maybeCreditTelegraphCounter } from '../src/game/combat.js';
 
 function makeRoom(monsterPatch = {}) {
   // Lightweight Room shim sufficient for the behaviors we test. Avoids
@@ -167,6 +167,52 @@ describe('streamer abilities', () => {
     expect(usage.castCount).toBe(1);
     // damageDealt may be 0 if no chatters were alive; we joined alice so it should fire
     expect(usage.damageDealt).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('telegraph counter-credit', () => {
+  it('credits a chatter who used the right counter on the right target', () => {
+    const room = makeRoom();
+    openLobby(room);
+    handleChatCommand(room, 'alice', 'join', '!join');
+    const c = ensureCombat(room);
+    c.telegraph = {
+      sigName: 'TEST', counter: 'block', target: 'one',
+      targetLogins: ['alice'], expiresAt: Date.now() + 4000,
+    };
+    c.counterChatters = new Set();
+    maybeCreditTelegraphCounter(c, 'alice', 'block');
+    expect(c.counterChatters.has('alice')).toBe(true);
+  });
+
+  it('does not credit a chatter who used the wrong action', () => {
+    const room = makeRoom();
+    openLobby(room);
+    const c = ensureCombat(room);
+    c.telegraph = { sigName: 'TEST', counter: 'block', target: 'all', targetLogins: ['alice'], expiresAt: Date.now() + 4000 };
+    c.counterChatters = new Set();
+    maybeCreditTelegraphCounter(c, 'alice', 'attack');
+    expect(c.counterChatters.has('alice')).toBe(false);
+  });
+
+  it('does not credit a chatter who is not a target (single-target sig)', () => {
+    const room = makeRoom();
+    openLobby(room);
+    const c = ensureCombat(room);
+    c.telegraph = { sigName: 'TEST', counter: 'block', target: 'one', targetLogins: ['alice'], expiresAt: Date.now() + 4000 };
+    c.counterChatters = new Set();
+    maybeCreditTelegraphCounter(c, 'bob', 'block');
+    expect(c.counterChatters.has('bob')).toBe(false);
+  });
+
+  it('credits any chatter for area-wide telegraphs', () => {
+    const room = makeRoom();
+    openLobby(room);
+    const c = ensureCombat(room);
+    c.telegraph = { sigName: 'TEST', counter: 'block', target: 'all', targetLogins: ['alice', 'bob'], expiresAt: Date.now() + 4000 };
+    c.counterChatters = new Set();
+    maybeCreditTelegraphCounter(c, 'eve', 'block');
+    expect(c.counterChatters.has('eve')).toBe(true);
   });
 });
 
